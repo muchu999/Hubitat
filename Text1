@@ -1,0 +1,1344 @@
+/*
+* AmbientWeather
+*
+* Description:
+* This Hubitat driver polls the AmbientWeather API OR receives data from your local Ecowitt weather station. If you reuse this code
+* in your own driver, you must obtain your own developer API Key to place in the ApplicationKey value of the
+* PollAmbient procedure.
+*
+* Required Information:
+* There is information required you must have for this driver to work:
+* 1) The MAC Address of the weather station you want to poll
+* 2) A user API Key requested from AmbientWeather to allow data to be polled if using the "Ambient API" data method. If using an Ecowitt weather station with @christi999's "Ecowitt Local" method
+*
+* Features List:
+* v0.92 - Added support for DeWitt Weather Stations that allow local checking of weather station. No API needed.
+* v0.7 - Error checking of MAC Address including some possible auto-correction
+* v0.7 - Calculates DewPoint from tempf and humidityout (if not reported by Ambient)
+* v0.7 - Calculates HeatIndex if tempf >= 80ºF but reports null otherwise
+* v0.7 - Calculates WindChill if tempf <= 50ºF and windSpeed > 3mph but reports null otherwise
+* v0.6 - Ability to hide preferences to keep the screen simpler, to be added to all my drivers eventually
+* v0.5 - Added illuminance
+* v0.5 - Wind direction now has an alternative WindDirectionString that spells out the direction
+* v0.4 - Posting all read variables as events
+* v0.1 - Ability read and report all known values (except 24hourrainin) returned from the AmbientWeather API
+* v0.1 - Ability to check a website (mine) to notify user if there is a newer version of the driver available
+* 
+* Licensing:
+* Copyright 2020 David Snell
+* Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+* in compliance with the License. You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0
+* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+* on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+* for the specific language governing permissions and limitations under the License.
+*
+* Version Control:
+* 0.92 - Added support for Ecowitt stations with @christi999's local method
+* 0.91 - Corrected illuminance to be a Long integer
+* 0.9 - Added pm25_in and pm25_in_24h attributes
+* 0.8 - Added new attributes to attribute list that were left off in v0.7 and rework of conversion methods (generally rounds to 0.01)
+* 0.7 - Calculate dewPoint if not reported by system as well, added HeatIndex and WindChill, added MAC address error check/correct,
+*     - added a large number of new device data fields reported by Ambient
+* 0.6 - Adding more measurement conversions for metric systems and formatting for device MAC address
+* 0.5 - Getting 24hourrainin data to work properly, added wind direction by words, added illuminance, and fixed baromrelin
+* 0.4 - Adding all variables as events so they can be used in dashboards and rules also performing more metric conversions
+* 0.3 - State changed notification for send events
+* 0.2 - Change to the update mechanism
+* 0.1 - Initial design based on my Neptune Systems Apex driver
+* 
+* Thank you(s):
+* I would like to thank @Cobra his contributions to the community. Parts based on Cobra's driver update code
+* have been included at the bottom of the driver and are noted as such.
+* I also would like to thank @christi999 for determining how Ecowitt devices could be added to the driver. His code is reused
+* in the PollEcowitt function.
+*/
+
+// Driver Metadata
+metadata{
+	definition( name: "AmbientWeather", namespace: "Snell", author: "David Snell", importUrl: "https://www.drdsnell.com/projects/hubitat/drivers/AmbientWeather.groovy" ) {
+		// Indicate what capabilities the device should be capable of
+		capability "Sensor"
+		capability "Refresh"
+        capability "Battery"
+        capability "PressureMeasurement"
+        capability "RelativeHumidityMeasurement"
+        capability "TemperatureMeasurement"
+        capability "UltravioletIndex"
+        capability "IlluminanceMeasurement"
+        
+		// Attributes for the driver itself
+		attribute "Driver", "string" // Identifies the driver being used for update purposes
+		attribute "Version", "string" // Version number of the driver itself
+        
+        // Attributes not returned by a known weather station, but calculated and provided
+        attribute "HeatIndex", "number" // // HeatIndex is only calculated if temperature outside >= 80ºF
+        attribute "WindChill", "number" // WindChill is only calculated if temperature outside <= 50ºF and wind speed is > 3
+        
+		// Arttributes for the values returned that Hubitat supports normally
+		attribute "temperature", "number"
+		attribute "humidity", "number" // Outside humidity, but converted as desired by user preferences
+		attribute "pressure", "number"
+		attribute "ultravioletIndex", "number"
+        attribute "illuminance", "number" // Based on solarradiation * 126.7
+        attribute "windSpeed", "number" // This attribute is NOT listed in Hubitat documentation... but is used by weather dashboard tile.
+        attribute "windDirection", "number" // This attribute is NOT listed in Hubitat documentation... but is used by weather dashboard tile.
+        attribute "humidityout", "number" // Not a real value returned by Ambient but a duplicate of the returned humidity
+		attribute "battery", "number" // Not a real value returned by Ambient but a duplicate of battout
+        
+        // Attributes that have been created for conversion between measurement standards
+        attribute "baromrel", "number" // Created for switching between inHg/mmHg
+        attribute "baromabs", "number" // Created for switching between inHg/mmHg
+        attribute "tempout", "number" // Created for switching between °F/°C
+        attribute "tempin", "number" // Created for switching between °F/°C
+        attribute "temp1", "number" // Created for switching between °F/°C
+		attribute "temp2", "number" // Created for switching between °F/°C
+		attribute "temp3", "number" // Created for switching between °F/°C
+		attribute "temp4", "number" // Created for switching between °F/°C
+		attribute "temp5", "number" // Created for switching between °F/°C
+		attribute "temp6", "number" // Created for switching between °F/°C
+		attribute "temp7", "number" // Created for switching between °F/°C
+		attribute "temp8", "number" // Created for switching between °F/°C
+		attribute "temp9", "number" // Created for switching between °F/°C
+		attribute "temp10", "number" // Created for switching between °F/°C
+        attribute "soiltemp1", "number" // Created for switching between °F/°C
+		attribute "soiltemp2", "number" // Created for switching between °F/°C
+		attribute "soiltemp3", "number" // Created for switching between °F/°C
+		attribute "soiltemp4", "number" // Created for switching between °F/°C
+		attribute "soiltemp5", "number" // Created for switching between °F/°C
+		attribute "soiltemp6", "number" // Created for switching between °F/°C
+		attribute "soiltemp7", "number" // Created for switching between °F/°C
+		attribute "soiltemp8", "number" // Created for switching between °F/°C
+		attribute "soiltemp9", "number" // Created for switching between °F/°C
+		attribute "soiltemp10", "number" // Created for switching between °F/°C
+        attribute "windGust", "number" // Created for switching between mph/kph
+		attribute "windspd_avg2m", "number" // Created for switching between mph/kph
+        attribute "windspd_avg10m", "number" // Created for switching between mph/kph
+        attribute "hourlyRain", "number" // Created for switching between in/mm
+		attribute "eventRain", "number" // Created for switching between in/mm
+		attribute "dailyRain", "number" // Created for switching between in/mm
+        attribute "weeklyRain", "number" // Created for switching between in/mm
+        attribute "monthlyRain", "number" // Created for switching between in/mm
+        attribute "yearlyRain", "number" // Created for switching between in/mm
+        attribute "totalRain", "number" // Created for switching between in/mm
+        attribute "Last24HourRain", "number" // Created for switching between in/mm
+        attribute "WindDirectionString", "string" // This attribute was created to use words for the direction of the wind
+        
+        // Attributes that exist in the data returned but MAY be modified due to measurement standards
+        attribute "dewPoint", "number"
+        attribute "feelsLike", "number"
+        attribute "dewPointin", "number"
+        attribute "feelsLikein", "number"
+        attribute "baromrelin", "number"
+        attribute "baromabsin", "number"
+        attribute "windgustmph", "number"
+        attribute "windspeedmph", "number"
+		attribute "maxdailygust", "number"
+		attribute "windspdmph_avg2m", "number"
+        attribute "windspdmph_avg10m", "number"
+        attribute "eventrainin", "number"
+		attribute "hourlyrainin", "number"
+		attribute "dailyrainin", "number"
+        attribute "weeklyrainin", "number"
+        attribute "monthlyrainin", "number"
+        attribute "yearlyrainin", "number"
+        attribute "totalrainin", "number"
+        
+		// Additional attributes for values returned
+		attribute "tempf", "number" // Outside temperate in °F
+		attribute "tempinf", "number" // Inside temperate in °F
+		attribute "date", "string"
+		attribute "uv", "number"
+		attribute "winddir", "number"
+		attribute "dateutc", "number"
+		attribute "solarradiation", "number"
+		attribute "humidityin", "number" // Inside humidity
+		attribute "battout", "number"
+		attribute "windgustdir", "number"
+		attribute "winddir_avg2m", "number"
+		attribute "co2", "number"
+		attribute "pm25", "number"
+		attribute "pm25_24h", "number"
+        attribute "pm25_in", "number"
+        attribute "pm25_in_24h", "number"
+		attribute "batt_25", "number"
+		attribute "tz", "string"
+		attribute "lastRain", "string"
+		attribute "humidity1", "number"
+		attribute "humidity2", "number"
+		attribute "humidity3", "number"
+		attribute "humidity4", "number"
+		attribute "humidity5", "number"
+		attribute "humidity6", "number"
+		attribute "humidity7", "number"
+		attribute "humidity8", "number"
+		attribute "humidity9", "number"
+		attribute "humidity10", "number"
+		attribute "temp1f", "number"
+		attribute "temp2f", "number"
+		attribute "temp3f", "number"
+		attribute "temp4f", "number"
+		attribute "temp5f", "number"
+		attribute "temp6f", "number"
+		attribute "temp7f", "number"
+		attribute "temp8f", "number"
+		attribute "temp9f", "number"
+		attribute "temp10f", "number"
+        attribute "soiltemp1f", "number"
+		attribute "soiltemp2f", "number"
+		attribute "soiltemp3f", "number"
+		attribute "soiltemp4f", "number"
+		attribute "soiltemp5f", "number"
+		attribute "soiltemp6f", "number"
+		attribute "soiltemp7f", "number"
+		attribute "soiltemp8f", "number"
+		attribute "soiltemp9f", "number"
+		attribute "soiltemp10f", "number"
+		attribute "soilmoisture1", "number"
+		attribute "soilmoisture2", "number"
+		attribute "soilmoisture3", "number"
+		attribute "soilmoisture4", "number"
+		attribute "soilmoisture5", "number"
+		attribute "soilmoisture6", "number"
+		attribute "soilmoisture7", "number"
+		attribute "soilmoisture8", "number"
+		attribute "soilmoisture9", "number"
+		attribute "soilmoisture10", "number"
+		attribute "batt1", "number"
+		attribute "batt2", "number"
+		attribute "batt3", "number"
+		attribute "batt4", "number"
+		attribute "batt5", "number"
+		attribute "batt6", "number"
+		attribute "batt7", "number"
+		attribute "batt8", "number"
+		attribute "batt9", "number"
+		attribute "batt10", "number"
+		attribute "relay1", "number"
+		attribute "relay2", "number"
+		attribute "relay3", "number"
+		attribute "relay4", "number"
+		attribute "relay5", "number"
+		attribute "relay6", "number"
+		attribute "relay7", "number"
+		attribute "relay8", "number"
+		attribute "relay9", "number"
+		attribute "relay10", "number"
+		attribute "'24hourrainin'", "number"
+        attribute "dewPoint1", "number"
+        attribute "dewPoint2", "number"
+        attribute "dewPoint3", "number"
+        attribute "dewPoint4", "number"
+        attribute "dewPoint5", "number"
+        attribute "dewPoint6", "number"
+        attribute "dewPoint7", "number"
+        attribute "dewPoint8", "number"
+        attribute "dewPoint9", "number"
+        attribute "dewPoint10", "number"
+        attribute "feelsLike1", "number"
+        attribute "feelsLike2", "number"
+        attribute "feelsLike3", "number"
+        attribute "feelsLike4", "number"
+        attribute "feelsLike5", "number"
+        attribute "feelsLike6", "number"
+        attribute "feelsLike7", "number"
+        attribute "feelsLike8", "number"
+        attribute "feelsLike9", "number"
+        attribute "feelsLike10", "number"
+	}
+	preferences{
+		section{
+            if( ShowAllPreferences ){
+                if( DataMethod != "2" ){
+    			    input( type: "string", name: "APIKey", title: "Personal API Key for AmbientWeather", required: true )
+                }
+                 if( DataMethod != "2" ){
+                     input( type: "string", name: "MACAddress", title: "MAC Address of station in xx:xx:xx:xx:xx:xx format", required: true )
+                 }
+                if( DataMethod != "2" ){
+    			    input( type: "enum", name: "RefreshRate", title: "Data Refresh Rate (in minutes)", required: true, multiple: false, options: [ [ "1" : "1" ], [ "5" : "5" ], [ "15" : "15" ] ], defaultValue: "5" )
+                }
+                input( type: "bool", name: "OutdoorTemperature", title: "Report outdoor temperature?", defaultValue: true, description: "Turning this off will have events report the indoor temperature instead." )
+    			input( type: "bool", name: "OutdoorHumidity", title: "Report outdoor humidity?", defaultValue: true, description: "Turning this off will have events report the indoor humidity instead." )
+    			input( type: "enum", name: "WindDirMethod", title: "Wind Direction Method?", description: "Select which method you want wind direction indicated by.", required: false, multiple: false, options: [ [ "1" : "Degrees Only" ], [ "2" : "4 Compass Values (Letter Only)" ], [ "3" : "8 Compass Values (Letters Only)" ], [ "4" : "16 Compass Values (Letters Only)" ], [ "5" : "4 Compass Values (Words)" ], [ "6" : "8 Compass Values (Words)" ], [ "7" : "16 Compass Values (Words)" ] ], defaultValue: "1" )
+    			input( type: "enum", name: "DataMethod", title: "Which method of obtaining weather data do you want to use?", required: true, multiple: false, options: [ [ "1" : "Ambient API" ], [ "2" : "Ecowitt Local" ] ], defaultValue: "1" )
+    			input( type: "enum", name: "LogType", title: "Enable Logging?", required: true, multiple: false, options: [ [ "1" : "None" ], [ "2" : "Info" ], [ "3" : "Debug" ] ], defaultValue: "2" )
+                input( type: "bool", name: "ShowAllPreferences", title: "Show All Preferences?", defaultValue: true )
+            } else {
+                input( type: "bool", name: "ShowAllPreferences", title: "Show All Preferences?", defaultValue: true )
+            }
+        }
+	}
+}
+
+
+
+// updated is called whenever device parameters are saved
+def updated(){
+	Logging( "Updated", 2 )
+    refresh()
+	
+	// Check what the refresh rate is set for then run it. Ambient Weather has a MAXIMUM refresh rate of 1 per second.
+    // I set a maximum refresh rate of 1 per minute... If you need more, get a different Application Key and rework this.
+    if( DataMethod != "2" ){
+    	if( RefreshRate == "1" ){
+    		runEvery1Minute( refresh )
+        	runIn( 1, refresh )
+    		Logging( "Refresh rate: 1 minute", 3 )
+    	}
+    	if( RefreshRate == "5" ){
+    		runEvery5Minutes( refresh )
+    		runIn( 5, refresh )
+    		Logging( "Refresh rate: 5 minutes", 3 )
+    	}
+    	if( RefreshRate == "15" ){
+    		runEvery15Minutes( refresh )
+    		runIn( 15, refresh )
+    		Logging( "Refresh rate: 15 minutes", 3 )
+    	}
+    }
+	SetCheckForUpdate()
+}
+
+// refresh clears current states than sets the driver basics and performs a poll of data
+def refresh(){
+    state.clear()
+	
+    state.Version = "0.92"
+	state.Driver = "AmbientWeather"
+    if( DataMethod == "1" ){
+        PollAmbient()
+    }
+}
+
+// installed is called when the device is installed, all it really does is run updated
+def installed(){
+	Logging( "Installed", 2 )
+	updated()
+}
+
+// initialize is called when the device is initialized, all it really does is run updated
+def initialize(){
+	Logging( "Initialized", 2 )
+	updated()
+}
+
+// parse appears to be one of those "special" methods for when data is returned 
+// but I wanted to make sure that polling Ecowitt local was being handled on
+// it's own and could be more readily reworked if multiple methods were ever to 
+// use this
+def parse( String description ){
+    if( DataMethod == "2" ){
+        PollEcowitt( description )
+    }
+}
+
+// Poll Ecowitt station for data without needing to access an API. This was provided by @christi999
+def PollEcowitt( String description ){
+    Logging( "Attempting to check Ecowitt Weather Station", 3 )
+    def msg = parseLanMessage( description )
+    //log.debug msg
+    def body = msg.body // => request body as a string
+    Logging( description, 3 )
+    // Building json object from string
+    a = body.split( '&' )
+    out = "[{"
+    for( i = 0; i < a.length ; ++i ){
+        b= a[i].split( '=' )
+        if( ( b[ 0 ] == "PASSKEY" ) || ( b[ 0 ] == "stationtype" ) || ( b[ 0 ] == "dateutc" ) || ( b[ 0 ] == "freq" ) || ( b[ 0 ] == "model" ) ){
+            out = out + '"' + b[ 0 ] + '":"' +b[ 1 ] +'"'
+        } else {
+            out = out + '"' + b[ 0 ]  + '":' +b[ 1 ] 
+        }
+        if( i < a.length - 1 ){
+            out = out  + ','
+        }
+    }
+    
+    out = out + "}]"
+    def slurper = new groovy.json.JsonSlurper()
+    json2 = slurper.parseText( out )
+    ParseWeather( json2 )
+}
+
+//Poll AmbientWeather for data
+def PollAmbient() {
+    // If you are going to reuse this code, you need to get your own ApplicationKey from AmbientWeather
+    // I have set this driver to only poll for the most recent data received from the weather station
+    // If you need more results, request your own ApplicationKey and rework the driver
+    def ApplicationKey = "c0d1959778684f11af086ffc4a15e5d94cfa1e53a9f1476aab6306d461245d54"
+    
+ 
+    // Error checking MAC Address provided
+    def tempMAC = MACAddress
+    tempMAC = tempMAC.replaceAll( "[.,; ]", ":" )
+    if( tempMAC.size() != 17 ){
+        if( tempMAC.size() > 17 ){
+            Logging( "MAC Address too long, please enter correctly in Preferences.", 4 )  
+        } else if( tempMAC.size() > 12 && tempMAC.size() < 17 ){
+            Logging( "Maybe some (but not enough) separators in MAC Address, attempting to correct.", 3 )
+            tempMAC = tempMAC.replaceAll( "[.,;: ]", "" )
+            tempMAC = tempMAC.substring( 0, 2 ) + ":" + tempMAC.substring( 2, 4 ) + ":" + tempMAC.substring( 4, 6 ) + ":" + tempMAC.substring( 6, 8 ) + ":" + tempMAC.substring( 8, 10 ) + ":" + tempMAC.substring( 10, 12 )
+        } else if( tempMAC.size() == 12 ){
+            Logging( "Likely no separators in MAC Address, attempting to correct.", 3 )
+            tempMAC = tempMAC.substring( 0, 2 ) + ":" + tempMAC.substring( 2, 4 ) + ":" + tempMAC.substring( 4, 6 ) + ":" + tempMAC.substring( 6, 8 ) + ":" + tempMAC.substring( 8, 10 ) + ":" + tempMAC.substring( 10, 12 )
+        } else if( tempMAC.size() < 12 ){
+            Logging( "MAC Address too short, please enter correctly in Preferences.", 4 )
+        }
+    }
+    if( tempMAC.matches( "[ 0-9A-Fa-f ][ 0-9A-Fa-f ]:[ 0-9A-Fa-f ][ 0-9A-Fa-f ]:[ 0-9A-Fa-f ][ 0-9A-Fa-f ]:[ 0-9A-Fa-f ][ 0-9A-Fa-f ]:[ 0-9A-Fa-f ][ 0-9A-Fa-f ]:[ 0-9A-Fa-f ][ 0-9A-Fa-f ]" ) ){
+        // Checks and possible corrections passed, attempt to get the data
+        Logging( "Getting data from MAC Address: ${ tempMAC }", 3 )
+        def Params = [ uri: "https://api.ambientweather.net/v1/devices/${ tempMAC }?apiKey=${ APIKey }&applicationKey=${ ApplicationKey }&endDate=&limit=1", contentType: "application/json" ]
+        if( RealTime ){
+            WSMethod( Params )
+        } else {
+            asynchttpGet( "GetWeather", Params)
+        }
+    } else {
+        Logging( "Invalid MAC Address saved, cannot poll.", 4 )
+    }
+}
+
+// Handles the response from AmbientWeather
+def GetWeather( resp, data ) {
+	if( resp.getStatus() == 200 ) {
+		Json = parseJson( resp.data )
+		ParseWeather( Json )
+	} else {
+		Logging( "Error connecting to AmbientWeather: ${ resp.status }", 4 )
+	}
+}
+
+// Parse the data returned, output events and populate attributes as needed
+def ParseWeather( Json ){
+    def NumberOfValues = Json[0].size() as Integer
+    def CurrentValue = 0 as Integer
+    def Index = 0 as Integer
+	// If there are any values returned, process them
+    if( NumberOfValues > 0 ){
+        // Variables that have differences in what may be dislayed so sendEvent is at the end
+		if( Json.tempf[ Index ] != null ){
+			state.tempf = Json.tempf[ Index ] // Outdoor Temperature, °F
+            state.tempout = ConvertTemperature( state.tempf )
+            sendEvent( name: "tempf", value: state.tempf, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "tempout", value: state.tempout, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+		if( Json.tempinf[ Index ] != null ){
+			state.tempinf = Json.tempinf[ Index ] // Indoor Temperature, °F
+            state.tempin = ConvertTemperature( state.tempinf )
+            sendEvent( name: "tempinf", value: state.tempinf, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "tempin", value: state.tempin, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.humidityin[ Index ] != null ){
+			state.humidityin = Json.humidityin[ Index ] // Indoor Humidity, 0-100%
+            sendEvent( name: "humidityin", value: state.humidityin, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.humidity[ Index ] != null ){
+			state.humidityout =  Json.humidity[ Index ] // Outdoor Humidity, 0-100%
+            sendEvent( name: "humidityout", value: state.humidityout, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( Json.dewPoint[ Index ] != null ){
+			state.dewPoint = ConvertTemperature( Json.dewPoint[Index] ) // Dew Point, °F (calculated on server)
+            sendEvent( name: "dewPoint", value: state.dewPoint, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.feelsLike[ Index ] != null ){
+			state.feelsLike = ConvertTemperature( Json.feelsLike[Index] ) // if < 50°F => Wind Chill, if > 68°F => Heat Index (calculated on server)
+            sendEvent( name: "feelsLike", value: state.feelsLike, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( Json.dewPointin[ Index ] != null ){
+			state.dewPointin = ConvertTemperature( Json.dewPointin[Index] ) // Dew Point, °F (calculated on server)
+            sendEvent( name: "dewPointin", value: state.dewPointin, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.feelsLikein[ Index ] != null ){
+			state.feelsLikein = ConvertTemperature( Json.feelsLikein[Index] ) // if < 50°F => Wind Chill, if > 68°F => Heat Index (calculated on server)
+            sendEvent( name: "feelsLikein", value: state.feelsLikein, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( Json.winddir_avg2m[ Index ] != null ){
+			state.winddir_avg2m = Json.winddir_avg2m[Index] // Average wind direction, 2 minute average, mph
+            sendEvent( name: "winddir_avg2m", value: state.winddir_avg2m, unit: "°", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.windspeedmph[ Index ] != null ){
+			state.windspeedmph = Json.windspeedmph[ Index ] // instantaneous wind speed, mph
+            state.windSpeed = ConvertMPH( state.windspeedmph )
+            sendEvent( name: "windspeedmph", value: state.windspeedmph, unit: "mph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( Json.windgustmph[ Index ] != null ){
+			state.windgustmph = Json.windgustmph[Index] // max wind speed in the last 10 minutes, mph
+            state.windGust = ConvertMPH( state.windgustmph )
+            sendEvent( name: "windgustmph", value: state.windgustmph, unit: "mph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.maxdailygust[ Index ] != null ){
+			state.maxdailygust = ConvertMPH( Json.maxdailygust[Index] ) // Maximum wind speed in last day, mph
+		} 
+		if( Json.windspdmph_avg2m[ Index ] != null ){
+			state.windspdmph_avg2m = Json.windspdmph_avg2m[Index] // Average wind speed, 2 minute average, mph
+            state.windspd_avg2m = ConvertMPH( state.windspd_avg2m )
+            sendEvent( name: "windspdmph_avg2m", value: state.windspdmph_avg2m, unit: "mph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.windspdmph_avg10m[ Index ] != null ){
+			state.windspdmph_avg10m = Json.windspdmph_avg10m[Index] // Average wind speed, 10 minute average, mph
+            state.windspd_avg10m = ConvertMPH( state.windspdmph_avg10m )
+            sendEvent( name: "windspdmph_avg10m", value: state.windspdmph_avg10m, unit: "mph",  linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+        if( Json.eventrainin[ Index ] != null ){
+			state.eventrainin = Json.eventrainin[ Index ] // Event Rain, in
+            state.eventRain = ConvertInches( state.eventrainin )
+            sendEvent( name: "eventrainin", value: state.eventrainin, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( Json.hourlyrainin[ Index ] != null ){
+			state.hourlyrainin = Json.hourlyrainin[ Index ] // Hourly Rain Rate, in/hr
+            state.hourlyRain = ConvertInches( state.hourlyrainin )
+            sendEvent( name: "hourlyrainin", value: state.hourlyrainin, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.dailyrainin[ Index ] != null ){
+			state.dailyrainin = Json.dailyrainin[Index] // Daily Rain, in
+            state.dailyRain = ConvertInches( state.dailyrainin )
+            sendEvent( name: "dailyrainin", value: state.dailyrainin, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.weeklyrainin[ Index ] != null ){
+			state.weeklyrainin = Json.weeklyrainin[Index] // Weekly Rain, in
+            state.weeklyRain = ConvertInches( state.weeklyrainin )
+            sendEvent( name: "weeklyrainin", value: state.weeklyrainin, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.monthlyrainin[ Index ] != null ){
+			state.monthlyrainin = Json.monthlyrainin[Index] // Monthly Rain, in
+            state.monthlyRain = ConvertInches( state.monthlyrainin )
+            sendEvent( name: "monthlyrainin", value: state.monthlyrainin, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.yearlyrainin[ Index ] != null ){
+			state.yearlyrainin = Json.yearlyrainin[Index] // Yearly Rain, in
+            state.yearlyRain = ConvertInches( state.yearlyrainin )
+            sendEvent( name: "yearlyrainin", value: state.yearlyrainin, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.totalrainin[ Index ] != null ){
+			state.totalrainin = Json.totalrainin[ Index ] // Total Rain, in (since last factory reset)
+            state.totalRain = ConvertInches( state.totalrainin )
+            sendEvent( name: "totalrainin", value: state.totalrainin, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        // Below values can immediately send events
+		if( Json.windgustdir[ Index ] != null ){
+			state.windgustdir = Json.windgustdir[Index] // Wind direction at which the wind gust occurred, 0-360º
+            sendEvent( name: "windgustdir", value: state.windgustdir, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.baromrelin[ Index ] != null ){
+			state.baromrelin =  Json.baromrelin[ Index ] // Relative Pressure, inHg
+			state.baromrel = ConvertInches( state.baromrel )
+			state.pressure = state.baromrel
+            sendEvent( name: "baromrelin", value: state.baromrelin, unit: "inHg", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.baromabsin[ Index ] != null ){
+			state.baromabsin = Json.baromabsin[ Index ] // Absolute Pressure, inHg
+			state.baromabs = ConvertInches( state.baromabsin )
+            sendEvent( name: "baromabsin", value: state.baromabsin, unit: "inHg", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.uv[ Index ] != null ){
+			state.uv =  Json.uv[ Index ] // Ultra-Violet Radiation Index, integer on all devices EXCEPT WS-8478.
+            sendEvent( name: "uv", value: state.uv, unit: "uvi", linkText: deviceName, descriptionText: "", isStateChange: true )
+			state.ultravioletIndex = state.uv
+            sendEvent( name: "ultravioletIndex", value: state.ultravioletIndex, unit: "uvi", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.date[ Index ] != null ){
+			state.date =  Json.date[ Index ] // Human Readable Date, string (converted on server from dateutc)
+            sendEvent( name: "date", value: state.date, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dateutc[ Index ] != null ){
+			state.dateutc = Json.dateutc[Index] // Date, int (milliseconds from 01-01-1970, rounded down to nearest minute on server)
+            sendEvent( name: "dateutc", value: state.dateutc, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.solarradiation[ Index ] != null ){
+			state.solarradiation = Json.solarradiation[Index] // Solar Radiation, W/m^2
+            sendEvent( name: "solarradiation", value: state.solarradiation, linkText: deviceName, descriptionText: "", isStateChange: true )
+            //state.illuminance = ( state.solarradiation * 126.7 ) - Old method
+            state.illuminance = ( state.solarradiation / 0.0079) as Long
+            sendEvent( name: "illuminance", value: state.illuminance, unit: "lux", linkText: deviceName, descriptionText: "", isStateChange: true )
+        } 
+		if( Json.battout[ Index ] != null ){
+			state.battout = Json.battout[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "battout", value: state.battout, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.co2[ Index ] != null ){
+			state.co2 = Json.co2[Index] // CO2 Meter, ppm
+            sendEvent( name: "co2", value: state.co2, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.pm25[ Index ] != null ){
+			state.pm25 = Json.pm25[Index] // PM2.5 Air Quality, Float, µg/m^3
+            sendEvent( name: "pm25", value: state.pm25, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.pm25_24h[ Index ] != null ){
+			state.pm25_24h = Json.pm25_24h[Index] // PM2.5 Air Quality 24 hour average, Float, µg/m^3
+            sendEvent( name: "pm25_24h", value: state.pm25_24h, linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( Json.pm25_in[ Index ] != null ){
+			state.pm25_in = Json.pm25_in[Index] // PM2.5 Air Quality, Indoor, Float, µg/m^3
+            sendEvent( name: "pm25_in", value: state.pm25_in, linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( Json.pm25_in_24h[ Index ] != null ){
+			state.pm25_in_24h = Json.pm25_in_24h[Index] // PM2.5 Air Quality 24 hour average, Indoor, Float, µg/m^3
+            sendEvent( name: "pm25_in_24h", value: state.pm25_in_24h, linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.batt_25[ Index ] != null ){
+			state.batt_25 = Json.batt_25[Index] // PM2.5 Air Quality Sensor Battery indication, Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt_25", value: state.batt_25, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.tz[ Index ] != null ){
+			state.tz = Json.tz[Index] // IANA Time Zone, String
+            sendEvent( name: "tz", value: state.tz, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.lastRain[ Index ] != null ){
+			state.lastRain = Json.lastRain[Index] // Last time hourlyrainin > 0, date (calculated on server)
+            sendEvent( name: "lastRain", value: state.lastRain, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity1[ Index ] != null ){
+			state.humidity1 = Json.humidity1[Index] // humidity1, 0-100%
+            sendEvent( name: "humidity1", value: state.humidity1, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity2[ Index ] != null ){
+			state.humidity2 = Json.humidity2[Index] // humidity2, 0-100%
+            sendEvent( name: "humidity2", value: state.humidity2, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity3[ Index ] != null ){
+			state.humidity3 = Json.humidity3[Index] // humidity3, 0-100%
+            sendEvent( name: "humidity3", value: state.humidity3, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity4[ Index ] != null ){
+			state.humidity4 = Json.humidity4[Index] // humidity4, 0-100%
+            sendEvent( name: "humidity4", value: state.humidity4, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity5[ Index ] != null ){
+			state.humidity5 = Json.humidity5[Index] // humidity5, 0-100%
+            sendEvent( name: "humidity5", value: state.humidity5, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity6[ Index ] != null ){
+			state.humidity6 = Json.humidity6[Index] // humidity6, 0-100%
+            sendEvent( name: "humidity6", value: state.humidity6, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity7[ Index ] != null ){
+			state.humidity7 = Json.humidity7[Index] // humidity7, 0-100%
+            sendEvent( name: "humidity7", value: state.humidity7, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity8[ Index ] != null ){
+			state.humidity8 = Json.humidity8[Index] // humidity8, 0-100%
+            sendEvent( name: "humidity8", value: state.humidity8, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity9[ Index ] != null ){
+			state.humidity9 = Json.humidity9[Index] // humidity9, 0-100%
+            sendEvent( name: "humidity9", value: state.humidity9, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.humidity10[ Index ] != null ){
+			state.humidity10 = Json.humidity10[Index] // humidity10, 0-100%
+            sendEvent( name: "humidity10", value: state.humidity10, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp1f[ Index ] != null ){
+			state.temp1f = Json.temp1f[Index] // Temperature 1, °F
+            state.temp1 = ConvertTemperature( state.temp1f )
+            sendEvent( name: "temp1f", value: state.temp1f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp1", value: state.temp1, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp2f[ Index ] != null ){
+			state.temp2f = Json.temp2f[Index] // Temperature 1, °F
+            state.temp2 = ConvertTemperature( state.temp2f )
+            sendEvent( name: "temp2f", value: state.temp2f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp2", value: state.temp2, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp3f[ Index ] != null ){
+			state.temp3f = Json.temp3f[Index] // Temperature 1, °F
+            state.temp3 = ConvertTemperature( state.temp3f )
+            sendEvent( name: "temp3f", value: state.temp3f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp3", value: state.temp3, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp4f[ Index ] != null ){
+			state.temp4f = Json.temp4f[Index] // Temperature 1, °F
+            state.temp4 = ConvertTemperature( state.temp4f )
+            sendEvent( name: "temp4f", value: state.temp4f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp4", value: state.temp4, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp5f[ Index ] != null ){
+			state.temp5f = Json.temp5f[Index] // Temperature 1, °F
+            state.temp5 = ConvertTemperature( state.temp5f )
+            sendEvent( name: "temp5f", value: state.temp5f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp5", value: state.temp5, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp6f[ Index ] != null ){
+			state.temp6f = Json.temp6f[Index] // Temperature 1, °F
+            state.temp6 = ConvertTemperature( state.temp6f )
+            sendEvent( name: "temp6f", value: state.temp6f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp6", value: state.temp6, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp7f[ Index ] != null ){
+			state.temp7f = Json.temp7f[Index] // Temperature 1, °F
+            state.temp7 = ConvertTemperature( state.temp7f )
+            sendEvent( name: "temp7f", value: state.temp7f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp7", value: state.temp7, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp8f[ Index ] != null ){
+			state.temp8f = Json.temp8f[Index] // Temperature 1, °F
+            state.temp8 = ConvertTemperature( state.temp8f )
+            sendEvent( name: "temp8f", value: state.temp8f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp8", value: state.temp8, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp9f[ Index ] != null ){
+			state.temp9f = Json.temp9f[Index] // Temperature 1, °F
+            state.temp9 = ConvertTemperature( state.temp9f )
+            sendEvent( name: "temp9f", value: state.temp9f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp9", value: state.temp9, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.temp10f[ Index ] != null ){
+			state.temp10f = Json.temp10f[Index] // Temperature 1, °F
+            state.temp10 = ConvertTemperature( state.temp10f )
+            sendEvent( name: "temp10f", value: state.temp10f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "temp10", value: state.temp10, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( Json.soiltemp1f[ Index ] != null ){
+			state.soiltemp1f = Json.soiltemp1f[Index] // Temperature 1, °F
+            state.soiltemp1 = ConvertTemperature( state.soiltemp1f )
+            sendEvent( name: "soiltemp1f", value: state.soiltemp1f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp1", value: state.soiltemp1, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp2f[ Index ] != null ){
+			state.soiltemp2f = Json.soiltemp2f[Index] // Temperature 1, °F
+            state.soiltemp2 = ConvertTemperature( state.soiltemp2f )
+            sendEvent( name: "soiltemp2f", value: state.soiltemp2f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp2", value: state.soiltemp2, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp3f[ Index ] != null ){
+			state.soiltemp3f = Json.soiltemp3f[Index] // Temperature 1, °F
+            state.soiltemp3 = ConvertTemperature( state.soiltemp3f )
+            sendEvent( name: "soiltemp3f", value: state.soiltemp3f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp3", value: state.soiltemp3, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp4f[ Index ] != null ){
+			state.soiltemp4f = Json.soiltemp4f[Index] // Temperature 1, °F
+            state.soiltemp4 = ConvertTemperature( state.soiltemp4f )
+            sendEvent( name: "soiltemp4f", value: state.soiltemp4f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp4", value: state.soiltemp4, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp5f[ Index ] != null ){
+			state.soiltemp5f = Json.soiltemp5f[Index] // Temperature 1, °F
+            state.soiltemp5 = ConvertTemperature( state.soiltemp5f )
+            sendEvent( name: "soiltemp5f", value: state.soiltemp5f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp5", value: state.soiltemp5, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp6f[ Index ] != null ){
+			state.soiltemp6f = Json.soiltemp6f[Index] // Temperature 1, °F
+            state.soiltemp6 = ConvertTemperature( state.soiltemp6f )
+            sendEvent( name: "soiltemp6f", value: state.soiltemp6f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp6", value: state.soiltemp6, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp7f[ Index ] != null ){
+			state.soiltemp7f = Json.soiltemp7f[Index] // Temperature 1, °F
+            state.soiltemp7 = ConvertTemperature( state.soiltemp7f )
+            sendEvent( name: "soiltemp7f", value: state.soiltemp7f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp7", value: state.soiltemp7, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp8f[ Index ] != null ){
+			state.soiltemp8f = Json.soiltemp8f[Index] // Temperature 1, °F
+            state.soiltemp8 = ConvertTemperature( state.soiltemp8f )
+            sendEvent( name: "soiltemp8f", value: state.soiltemp8f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp8", value: state.soiltemp8, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp9f[ Index ] != null ){
+			state.soiltemp9f = Json.soiltemp9f[Index] // Temperature 1, °F
+            state.soiltemp9 = ConvertTemperature( state.soiltemp9f )
+            sendEvent( name: "soiltemp9f", value: state.soiltemp9f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp9", value: state.soiltemp9, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soiltemp10f[ Index ] != null ){
+			state.soiltemp10f = Json.soiltemp10f[Index] // Temperature 1, °F
+            state.soiltemp10 = ConvertTemperature( state.soiltemp10f )
+            sendEvent( name: "soiltemp10f", value: state.soiltemp10f, unit: "°F", linkText: deviceName, descriptionText: "", isStateChange: true )
+            sendEvent( name: "soiltemp10", value: state.soiltemp10, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( Json.soilmoisture1[ Index ] != null ){
+			state.soilmoisture1 = Json.soilmoisture1[Index] // Soil Humidity 1, %
+            sendEvent( name: "soilmoisture1", value: state.soilmoisture1, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture2[ Index ] != null ){
+			state.soilmoisture2 = Json.soilmoisture2[Index] // Soil Humidity 2, %
+            sendEvent( name: "soilmoisture2", value: state.soilmoisture2, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture3[ Index ] != null ){
+			state.soilmoisture3 = Json.soilmoisture3[Index] // Soil Humidity 3, %
+            sendEvent( name: "soilmoisture3", value: state.soilmoisture3, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture4[ Index ] != null ){
+			state.soilmoisture4 = Json.soilmoisture4[Index] // Soil Humidity 4, %
+            sendEvent( name: "soilmoisture4", value: state.soilmoisture4, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture5[ Index ] != null ){
+			state.soilmoisture5 = Json.soilmoisture5[Index] // Soil Humidity 5, %
+            sendEvent( name: "soilmoisture5", value: state.soilmoisture5, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture6[ Index ] != null ){
+			state.soilmoisture6 = Json.soilmoisture6[Index] // Soil Humidity 6, %
+            sendEvent( name: "soilmoisture6", value: state.soilmoisture6, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture7[ Index ] != null ){
+			state.soilmoisture7 = Json.soilmoisture7[Index] // Soil Humidity 7, %
+            sendEvent( name: "soilmoisture7", value: state.soilmoisture7, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture8[ Index ] != null ){
+			state.soilmoisture8 = Json.soilmoisture8[Index] // Soil Humidity 8, %
+            sendEvent( name: "soilmoisture8", value: state.soilmoisture8, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture9[ Index ] != null ){
+			state.soilmoisture9 = Json.soilmoisture9[Index] // Soil Humidity 9, %
+            sendEvent( name: "soilmoisture9", value: state.soilmoisture9, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.soilmoisture10[ Index ] != null ){
+			state.soilmoisture10 = Json.soilmoisture10[Index] // Soil Humidity 10, %
+            sendEvent( name: "soilmoisture10", value: state.soilmoisture10, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt1[ Index ] != null ){
+			state.batt1 = Json.batt1[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt1", value: state.batt1, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt2[ Index ] != null ){
+			state.batt2 = Json.batt2[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt2", value: state.batt2, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt3[ Index ] != null ){
+			state.batt3 = Json.batt3[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt3", value: state.batt3, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt4[ Index ] != null ){
+			state.batt4 = Json.batt4[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt4", value: state.batt4, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt5[ Index ] != null ){
+			state.batt5 = Json.batt5[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt5", value: state.batt5, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt6[ Index ] != null ){
+			state.batt6 = Json.batt6[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt6", value: state.batt6, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt7[ Index ] != null ){
+			state.batt7 = Json.batt7[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt7", value: state.batt7, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt8[ Index ] != null ){
+			state.batt8 = Json.batt8[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt8", value: state.batt8, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt9[ Index ] != null ){
+			state.batt9 = Json.batt9[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt9", value: state.batt9, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.batt10[ Index ] != null ){
+			state.batt10 = Json.batt10[Index] // Good/Bad indication, Int, 1=Good, 0=Bad
+            sendEvent( name: "batt10", value: state.batt10, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay1[ Index ] != null ){
+			state.relay1 = Json.relay1[Index] // Relay 1, 0 or 1
+            sendEvent( name: "relay1", value: state.relay1, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay2[ Index ] != null ){
+			state.relay2 = Json.relay2[Index] // Relay 2, 0 or 1
+            sendEvent( name: "relay2", value: state.relay2, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay3[ Index ] != null ){
+			state.relay3 = Json.relay3[Index] // Relay 3, 0 or 1
+            sendEvent( name: "relay3", value: state.relay3, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay4[ Index ] != null ){
+			state.relay4 = Json.relay4[Index] // Relay 4, 0 or 1
+            sendEvent( name: "relay4", value: state.relay4, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay5[ Index ] != null ){
+			state.relay5 = Json.relay5[Index] // Relay 5, 0 or 1
+            sendEvent( name: "relay5", value: state.relay5, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay6[ Index ] != null ){
+			state.relay6 = Json.relay6[Index] // Relay 6, 0 or 1
+            sendEvent( name: "relay6", value: state.relay6, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay7[ Index ] != null ){
+			state.relay7 = Json.relay7[Index] // Relay 7, 0 or 1
+            sendEvent( name: "relay7", value: state.relay7, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay8[ Index ] != null ){
+			state.relay8 = Json.relay8[Index] // Relay 8, 0 or 1
+            sendEvent( name: "relay8", value: state.relay8, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay9[ Index ] != null ){
+			state.relay9 = Json.relay9[Index] // Relay 9, 0 or 1
+            sendEvent( name: "relay9", value: state.relay9, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.relay10[ Index ] != null ){
+			state.relay10 = Json.relay10[Index] // Relay 10, 0 or 1
+            sendEvent( name: "relay10", value: state.relay10, linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike1[ Index ] != null ){
+			state.feelsLike1 = ConvertTemperature( Json.feelsLike1[Index] ) // feelsLike for sensors 1
+            sendEvent( name: "feelsLike1", value: state.feelsLike1, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike2[ Index ] != null ){
+			state.feelsLike2 = ConvertTemperature( Json.feelsLike2[Index] ) // feelsLike for sensors 2
+            sendEvent( name: "feelsLike2", value: state.feelsLike2, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike3[ Index ] != null ){
+			state.feelsLike3 = ConvertTemperature( Json.feelsLike3[Index] ) // feelsLike for sensors 3
+            sendEvent( name: "feelsLike3", value: state.feelsLike3, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike4[ Index ] != null ){
+			state.feelsLike4 = ConvertTemperature( Json.feelsLike4[Index] ) // feelsLike for sensors 4
+            sendEvent( name: "feelsLike4", value: state.feelsLike4, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike5[ Index ] != null ){
+			state.feelsLike5 = ConvertTemperature( Json.feelsLike5[Index] ) // feelsLike for sensors 5
+            sendEvent( name: "feelsLike5", value: state.feelsLike5, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike6[ Index ] != null ){
+			state.feelsLike6 = ConvertTemperature( Json.feelsLike6[Index] ) // feelsLike for sensors 6
+            sendEvent( name: "feelsLike6", value: state.feelsLike6, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike7[ Index ] != null ){
+			state.feelsLike7 = ConvertTemperature( Json.feelsLike7[Index] ) // feelsLike for sensors 7
+            sendEvent( name: "feelsLike7", value: state.feelsLike7, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike8[ Index ] != null ){
+			state.feelsLike8 = ConvertTemperature( Json.feelsLike8[Index] ) // feelsLike for sensors 8
+            sendEvent( name: "feelsLike8", value: state.feelsLike8, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike9[ Index ] != null ){
+			state.feelsLike9 = ConvertTemperature( Json.feelsLike9[Index] ) // feelsLike for sensors 9
+            sendEvent( name: "feelsLike9", value: state.feelsLike9, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.feelsLike10[ Index ] != null ){
+			state.feelsLike10 = ConvertTemperature( Json.feelsLike10[Index] ) // feelsLike for sensors 10
+            sendEvent( name: "feelsLike10", value: state.feelsLike10, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( Json.dewPoint1[ Index ] != null ){
+			state.dewPoint1 = ConvertTemperature( Json.dewPoint1[Index] ) // dewPoint for sensors 1
+            sendEvent( name: "dewPoint1", value: state.dewPoint1, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint2[ Index ] != null ){
+			state.dewPoint2 = ConvertTemperature( Json.dewPoint2[Index] ) // dewPoint for sensors 2
+            sendEvent( name: "dewPoint2", value: state.dewPoint2, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint3[ Index ] != null ){
+			state.dewPoint3 = ConvertTemperature( Json.dewPoint3[Index] ) // dewPoint for sensors 3
+            sendEvent( name: "dewPoint3", value: state.dewPoint3, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint4[ Index ] != null ){
+			state.dewPoint4 = ConvertTemperature( Json.dewPoint4[Index] ) // dewPoint for sensors 4
+            sendEvent( name: "dewPoint4", value: state.dewPoint4, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint5[ Index ] != null ){
+			state.dewPoint5 = ConvertTemperature( Json.dewPoint5[Index] ) // dewPoint for sensors 5
+            sendEvent( name: "dewPoint5", value: state.dewPoint5, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint6[ Index ] != null ){
+			state.dewPoint6 = ConvertTemperature( Json.dewPoint6[Index] ) // dewPoint for sensors 6
+            sendEvent( name: "dewPoint6", value: state.dewPoint6, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint7[ Index ] != null ){
+			state.dewPoint7 = ConvertTemperature( Json.dewPoint7[Index] ) // dewPoint for sensors 7
+            sendEvent( name: "dewPoint7", value: state.dewPoint7, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint8[ Index ] != null ){
+			state.dewPoint8 = ConvertTemperature( Json.dewPoint8[Index] ) // dewPoint for sensors 8
+            sendEvent( name: "dewPoint8", value: state.dewPoint8, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint9[ Index ] != null ){
+			state.dewPoint9 = ConvertTemperature( Json.dewPoint9[Index] ) // dewPoint for sensors 9
+            sendEvent( name: "dewPoint9", value: state.dewPoint9, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( Json.dewPoint10[ Index ] != null ){
+			state.dewPoint10 = ConvertTemperature( Json.dewPoint10[Index] ) // dewPoint for sensors 10
+            sendEvent( name: "dewPoint10", value: state.dewPoint10, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		// Java cannot handle fields starting with numbers so had to make a different one
+		if( Json.'24hourrainin'[ Index ] != null ){
+			state.'24hourrainin' = Json.'24hourrainin'[Index] // 24 Hour Rain, in
+            state.Last24hourRain = ConvertInches( state.'24hourrainin' )
+            sendEvent( name: "24hourrainin", value: '24hourrainin', unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		// Due to all the options for wind direction wording it is now a separate section
+        if( Json.winddir[ Index ] != null ){
+			state.winddir = Json.winddir[ Index ] // instantaneous wind direction, 0-360º
+            sendEvent( name: "winddir", value: state.winddir, linkText: deviceName, descriptionText: "", isStateChange: true )
+            state.windDirection = state.winddir
+            sendEvent( name: "windDirection", value: state.windDirection, unit: "°", linkText: deviceName, descriptionText: "", isStateChange: true )
+            switch( WindDirMethod ){
+                case "1": // Degrees only
+                    state.WindDirectionString = state.winddir
+                    break
+                case "2": // 4 Compass Points - Letters
+                    if( state.winddir > 315 || state.winddir <= 45 ){
+                        state.WindDirectionString = "N"
+                    } else if( state.winddir > 45 || state.winddir <= 135 ){
+                        state.WindDirectionString = "E"
+                    } else if( state.winddir > 135 || state.winddir <= 225 ){
+                        state.WindDirectionString = "S"
+                    } else if( state.winddir > 225 || state.winddir <= 315 ){
+                        state.WindDirectionString = "W"
+                    }
+                    break
+                case "3": // 8 Compass Points - Letters
+                    if( state.winddir > 337.5 || state.winddir <= 22.5 ){
+                        state.WindDirectionString = "N"
+                    } else if( state.winddir > 22.5 || state.winddir <= 67.5 ){
+                        state.WindDirectionString = "NE"
+                    } else if( state.winddir > 67.5 || state.winddir <= 112.5 ){
+                        state.WindDirectionString = "E"
+                    } else if( state.winddir > 112.5 || state.winddir <= 157.5 ){
+                        state.WindDirectionString = "SE"
+                    } else if( state.winddir > 157.5 || state.winddir <= 202.5 ){
+                        state.WindDirectionString = "S"
+                    } else if( state.winddir > 202.5 || state.winddir <= 247.5 ){
+                        state.WindDirectionString = "SW"
+                    } else if( state.winddir > 247.5 || state.winddir <= 292.5 ){
+                        state.WindDirectionString = "W"
+                    } else if( state.winddir > 292.5 || state.winddir <= 337.5 ){
+                        state.WindDirectionString = "NW"
+                    }
+                    break
+                case "4": // 16 Compass Points - Letters
+                    if( state.winddir > 348.75 || state.winddir <= 11.25 ){
+                        state.WindDirectionString = "N"
+                    } else if( state.winddir > 11.25 || state.winddir <= 33.75 ){
+                        state.WindDirectionString = "NNE"
+                    } else if( state.winddir > 33.75 || state.winddir <= 56.25 ){
+                        state.WindDirectionString = "NE"
+                    } else if( state.winddir > 56.25 || state.winddir <= 78.75 ){
+                        state.WindDirectionString = "ENE"
+                    } else if( state.winddir > 78.75 || state.winddir <= 101.25 ){
+                        state.WindDirectionString = "E"
+                    } else if( state.winddir > 101.25 || state.winddir <= 123.75 ){
+                        state.WindDirectionString = "ESE"
+                    } else if( state.winddir > 123.75 || state.winddir <= 146.25 ){
+                        state.WindDirectionString = "SE"
+                    } else if( state.winddir > 146.25 || state.winddir <= 168.75 ){
+                        state.WindDirectionString = "SSE"
+                    } else if( state.winddir > 168.75 || state.winddir <= 191.25 ){
+                        state.WindDirectionString = "S"
+                    } else if( state.winddir > 191.25 || state.winddir <= 213.75 ){
+                        state.WindDirectionString = "SSW"
+                    } else if( state.winddir > 213.75 || state.winddir <= 236.25 ){
+                        state.WindDirectionString = "SW"
+                    } else if( state.winddir > 236.25 || state.winddir <= 258.75 ){
+                        state.WindDirectionString = "WSW"
+                    } else if( state.winddir > 258.75 || state.winddir <= 281.25 ){
+                        state.WindDirectionString = "W"
+                    } else if( state.winddir > 281.25 || state.winddir <= 303.75 ){
+                        state.WindDirectionString = "WNW"
+                    } else if( state.winddir > 303.75 || state.winddir <= 326.25 ){
+                        state.WindDirectionString = "NW"
+                    } else if( state.winddir > 326.25 || state.winddir <= 348.75 ){
+                        state.WindDirectionString = "NNW"
+                    }
+                    break
+                case "5": // 4 Compass Points - Words
+                    if( state.winddir > 315 || state.winddir <= 45 ){
+                        state.WindDirectionString = "North"
+                    } else if( state.winddir > 45 || state.winddir <= 135 ){
+                        state.WindDirectionString = "East"
+                    } else if( state.winddir > 135 || state.winddir <= 225 ){
+                        state.WindDirectionString = "South"
+                    } else if( state.winddir > 225 || state.winddir <= 315 ){
+                        state.WindDirectionString = "West"
+                    }
+                    break
+                case "6": // 8 Compass Points - Words
+                    if( state.winddir > 337.5 || state.winddir <= 22.5 ){
+                        state.WindDirectionString = "North"
+                    } else if( state.winddir > 22.5 || state.winddir <= 67.5 ){
+                        state.WindDirectionString = "North-East"
+                    } else if( state.winddir > 67.5 || state.winddir <= 112.5 ){
+                        state.WindDirectionString = "East"
+                    } else if( state.winddir > 112.5 || state.winddir <= 157.5 ){
+                        state.WindDirectionString = "South-East"
+                    } else if( state.winddir > 157.5 || state.winddir <= 202.5 ){
+                        state.WindDirectionString = "South"
+                    } else if( state.winddir > 202.5 || state.winddir <= 247.5 ){
+                        state.WindDirectionString = "South-West"
+                    } else if( state.winddir > 247.5 || state.winddir <= 292.5 ){
+                        state.WindDirectionString = "West"
+                    } else if( state.winddir > 292.5 || state.winddir <= 337.5 ){
+                        state.WindDirectionString = "North-West"
+                    }
+                    break
+                case "7": // 16 Compass Points - Words
+                    if( state.winddir > 348.75 || state.winddir <= 11.25 ){
+                        state.WindDirectionString = "North"
+                    } else if( state.winddir > 11.25 || state.winddir <= 33.75 ){
+                        state.WindDirectionString = "North-North-East"
+                    } else if( state.winddir > 33.75 || state.winddir <= 56.25 ){
+                        state.WindDirectionString = "North-East"
+                    } else if( state.winddir > 56.25 || state.winddir <= 78.75 ){
+                        state.WindDirectionString = "East-North-East"
+                    } else if( state.winddir > 78.75 || state.winddir <= 101.25 ){
+                        state.WindDirectionString = "East"
+                    } else if( state.winddir > 101.25 || state.winddir <= 123.75 ){
+                        state.WindDirectionString = "East-South-East"
+                    } else if( state.winddir > 123.75 || state.winddir <= 146.25 ){
+                        state.WindDirectionString = "South-East"
+                    } else if( state.winddir > 146.25 || state.winddir <= 168.75 ){
+                        state.WindDirectionString = "South-South-East"
+                    } else if( state.winddir > 168.75 || state.winddir <= 191.25 ){
+                        state.WindDirectionString = "South"
+                    } else if( state.winddir > 191.25 || state.winddir <= 213.75 ){
+                        state.WindDirectionString = "South-South-West"
+                    } else if( state.winddir > 213.75 || state.winddir <= 236.25 ){
+                        state.WindDirectionString = "South-West"
+                    } else if( state.winddir > 236.25 || state.winddir <= 258.75 ){
+                        state.WindDirectionString = "West-South-West"
+                    } else if( state.winddir > 258.75 || state.winddir <= 281.25 ){
+                        state.WindDirectionString = "West"
+                    } else if( state.winddir > 281.25 || state.winddir <= 303.75 ){
+                        state.WindDirectionString = "West-North-West"
+                    } else if( state.winddir > 303.75 || state.winddir <= 326.25 ){
+                        state.WindDirectionString = "North-West"
+                    } else if( state.winddir > 326.25 || state.winddir <= 348.75 ){
+                        state.WindDirectionString = "North-North-West"
+                    }
+                    break
+                default: // Degrees only
+                    state.WindDirectionString = state.winddir
+                    break
+            }
+            sendEvent( name: "WindDirectionString", value: state.WindDirectionString, linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        
+        
+        Logging( "${ NumberOfValues } fields from AmbientWeather", 3 )
+		Logging( Json, 3 )
+    } else {
+        Logging( "No fields reported by Ambient Weather", 3 )
+    }
+    // Calculate dewpoint if null but tempf and humidityout are available
+    if( state.dewPoint == null && ( state.tempf != null && state.humidityout != null ) ){
+        def DP = ( state.tempf - ( ( 9 / 25 ) * ( 100 - state.humidityout ) ) )
+        state.dewPoint = ConvertTemperature( DP )
+        sendEvent( name: "dewPoint", value: state.dewPoint, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+    }
+    // HeatIndex is only calculated if temperature outside >= 80ºF
+    if( state.HeatIndex == null && ( state.tempf >= 80 && state.humidityout != null ) ){
+        def T = state.tempf
+        def RH = state.humidityout
+        def HI = -42.379 + ( 2.04901523 * T ) + ( 10.14333127 * RH ) - ( 0.22475541 * ( T * RH ) ) - ( 0.00683783 * ( T ** 2 ) ) - ( 0.05481717 * ( RH ** 2 ) ) + ( 0.00122874 * ( ( T ** 2 ) * RH ) ) + ( 0.00085282 * ( T * ( RH ** 2 ) ) ) - ( 0.00000199 * ( ( T ** 2 ) * ( RH ** 2 ) ) )
+        state.HeatIndex = ConvertTemperature( HI )
+        sendEvent( name: "HeatIndex", value: state.HeatIndex, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+    } else {
+        sendEvent( name: "HeatIndex", value: null, linkText: deviceName, descriptionText: "", isStateChange: true )
+    }
+    // WindChill is only calculated if temperature outside <= 50ºF and wind speed is > 3
+    if( state.WindChill == null && ( state.tempf <= 50 && state.windSpeed > 3 ) ){
+        def T = state.tempf
+        def WS = state.windSpeed
+        def WC = 35.74 + ( 0.6215 * T ) - ( 35.75 * ( WS ** 0.16 ) ) + ( ( 0.4275 * T ) * ( WS ** 0.16 ) )
+        state.WindChill = ConvertTemperature( WC )
+        sendEvent( name: "WindChill", value: state.WindChill, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+    } else {
+        sendEvent( name: "WindChill", value: null, linkText: deviceName, descriptionText: "", isStateChange: true )
+    }
+    // Completed checking each value now handle location and other matchups
+    if( location.getTemperatureScale() == "F" ){
+        // Variables that have a duplicate made to coordinate between measurement standards
+        if( state.baromabs != null ){
+            sendEvent( name: "baromabs", value: state.baromabs, unit: "inHg", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( state.baromrel != null ){
+            sendEvent( name: "baromrel", value: state.baromrel, unit: "inHg", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( state.pressure != null ){
+            sendEvent( name: "pressure", value: state.pressure, unit: "psi", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( state.windSpeed != null ){
+            sendEvent( name: "windSpeed", value: state.windSpeed, unit: "mph", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( state.maxdailygust != null ){
+            sendEvent( name: "maxdailygust", value: state.maxdailygust, unit: "mph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+        if( state.windGust != null ){
+            sendEvent( name: "windGust", value: state.windGust, unit: "mph", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+		if( state.windspd_avg2m != null ){
+            sendEvent( name: "windspd_avg2m", value: state.windspd_avg2m, unit: "mph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( state.windspd_avg10m != null ){
+            sendEvent( name: "windspd_avg10m", value: state.windspd_avg10m, unit: "mph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( state.hourlyRain != null ){
+            sendEvent( name: "hourlyRain", value: state.hourlyRain, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( state.eventRain != null ){
+            sendEvent( name: "eventRain", value: state.eventRain, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( state.Last24hourRain != null ){
+            sendEvent( name: "Last24hourRain", value: state.Last24hourRain, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( state.dailyRain != null ){
+            sendEvent( name: "dailyRain", value: state.dailyRain, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( state.weeklyRain != null ){
+            sendEvent( name: "weeklyRain", value: state.weeklyRain, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( state.monthlyRain != null ){
+            sendEvent( name: "monthlyRain", value: state.monthlyRain, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( state.yearlyRain != null ){
+            sendEvent( name: "yearlyRain", value: state.yearlyRain, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( state.totalRain != null ){
+            sendEvent( name: "totalRain", value: state.totalRain, unit: "in", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+    } else { // Converting values to metric because location.getTemperatureScale() is C
+        // Variables that have a duplicate made to coordinate between measurement standards
+        if( state.baromabs != null ){
+            sendEvent( name: "baromabs", value: state.baromabs, unit: "mmHg", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( state.baromrel != null ){
+            sendEvent( name: "baromrel", value: state.baromrel, unit: "mmHg", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( state.pressure != null ){
+            sendEvent( name: "pressure", value: state.pressure, unit: "mmHg", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( state.windSpeed != null ){
+            sendEvent( name: "windSpeed", value: state.windSpeed, unit: "kph", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+        if( state.maxdailygust != null ){
+            sendEvent( name: "maxdailygust", value: state.maxdailygust, unit: "kph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+        if( state.windGust != null ){
+            sendEvent( name: "windGust", value: state.windGust, unit: "kph", linkText: deviceName, descriptionText: "", isStateChange: true )
+        }
+		if( state.windspd_avg2m != null ){
+            sendEvent( name: "windspd_avg2m", value: state.windspd_avg2m, unit: "kph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( state.windspd_avg10m != null ){
+            sendEvent( name: "windspd_avg10m", value: state.windspd_avg10m, unit: "kph", linkText: deviceName, descriptionText: "", isStateChange: true )
+		} 
+		if( state.hourlyRain != null ){
+            sendEvent( name: "hourlyRain", value: state.hourlyRain, unit: "mm", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( state.eventRain != null ){
+            sendEvent( name: "eventRain", value: state.eventRain, unit: "mm", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( state.Last24hourRain != null ){
+            sendEvent( name: "Last24hourRain", value: state.Last24hourRain, unit: "mm", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( state.dailyRain != null ){
+            sendEvent( name: "dailyRain", value: state.dailyRain, unit: "mm", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+		if( state.weeklyRain != null ){
+            sendEvent( name: "weeklyRain", value: state.weeklyRain, unit: "mm", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( state.monthlyRain != null ){
+            sendEvent( name: "monthlyRain", value: state.monthlyRain, unit: "mm", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( state.yearlyRain != null ){
+            sendEvent( name: "yearlyRain", value: state.yearlyRain, unit: "mm", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+        if( state.totalRain != null ){
+            sendEvent( name: "totalRain", value: state.totalRain, unit: "mm", linkText: deviceName, descriptionText: "", isStateChange: true )
+		}
+    }
+    if( OutdoorHumidity ){
+        state.humidity =  state.humidityout
+    } else {
+        state.humidity =  state.humidityin
+    }
+    if( state.humidity != null ){
+        sendEvent( name: "humidity", value: state.humidity, unit: "%", linkText: deviceName, descriptionText: "", isStateChange: true )
+    }
+    if( OutdoorTemperature ){
+        state.temperature = state.tempout
+    } else {
+        state.temperature = state.tempin
+    }
+    if( state.temperature != null ){
+        sendEvent( name: "temperature", value: state.temperature, unit: location.getTemperatureScale(), linkText: deviceName, descriptionText: "", isStateChange: true )
+    }
+}
+
+// Checks the location.getTemperatureScale() to convert temperature values
+def ConvertTemperature( Number Value ){
+    if( Value != null ){
+        def ReturnValue = Value as double
+        if( location.getTemperatureScale() == "C" ){
+            ReturnValue = ( ( ( Value - 32 ) * 5 ) / 9 )
+        }
+        def TempInt = ( ReturnValue * 100 ) as int
+        ReturnValue = ( TempInt / 100 )
+        return ReturnValue
+    }
+}
+
+// Checks the location.getTemperatureScale() to convert in to mm
+def ConvertInches( Number Value ){
+    if( Value != null ){
+        def ReturnValue = Value as double
+        if( location.getTemperatureScale() == "C" ){
+            ReturnValue = ( Value * 25.4 )
+        }
+        def TempInt = ( ReturnValue * 100 ) as int
+        ReturnValue = ( TempInt / 100 )
+        return ReturnValue
+    }
+}
+
+// Checks the location.getTemperatureScale() to convert mph to kph
+def ConvertMPH( Number Value ){
+    if( Value != null ){
+        def ReturnValue = Value as double
+        if( location.getTemperatureScale() == "C" ){
+            ReturnValue = ( Value * 1.609 )
+        }
+        def TempInt = ( ReturnValue * 100 ) as int
+        ReturnValue = ( TempInt / 100 )
+        return ReturnValue
+    }
+}
+
+// Handles whether logging is enabled and thus what to put there.
+def Logging( LogMessage, LogLevel ){
+	// Add all messages as info logging
+	if( LogType == "2" && LogLevel <= 2 ) {
+		log.info( "${ device.displayName } - ${ LogMessage }" )
+	}
+	// Add all messages as debug logging
+	if( LogType == "3" && LogLevel <= 3 ) {
+		log.debug( "${ device.displayName } - ${ LogMessage }" )
+	}
+    // Treat LogLevel > 3 as error messages
+	if( LogLevel > 3 ) {
+		log.error( "${ device.displayName } - ${ LogMessage }" )
+	}
+}
+
+// Based on @Cobra's update checking method
+// I let the schedule be based on the current date so that checks are not all done at the same time
+def SetCheckForUpdate() {
+	schedule( new Date(), CheckForUpdate )
+}
+
+// Checks drdsnell.com for the latest version of the driver
+// Based on @Cobra's update checking method, although I prefer xml vs json
+def CheckForUpdate(){
+	httpGet( uri: "https://www.drdsnell.com/projects/hubitat/drivers/versions.xml", contentType: "text/xml" ){ resp ->
+		// If only an error is reported rather than an OK response
+		if( resp.status != 200 ) {
+			Logging( "Error connecting to drdsnell.com for driver version check.", 4 )
+		} else {
+			// Checking the latest listed version
+			def Node = resp.data.'**'.find { driver -> driver.name.text() == state.Driver }
+            def SiteVersion = Float.parseFloat( Node.version.text() ) as Float
+            def DriverVersion = Float.parseFloat( state.Version ) as Float
+            if( SiteVersion >  DriverVersion ){
+				Logging( "Newer driver (${ SiteVersion }) available", 2 )
+				sendEvent( name: "Version", value: "New driver (${ SiteVersion }) available", linkText: deviceName, descriptionText: "" )
+			} else if( SiteVersion < DriverVersion ){
+                    Logging( "Has beta driver", 2 )
+				    sendEvent( name: "Version", value: "Beta driver", linkText: deviceName, descriptionText: "" )	
+            } else if( SiteVersion == DriverVersion ){
+				Logging( "Has latest driver", 2 )
+				sendEvent( name: "Version", value: "Latest driver", linkText: deviceName, descriptionText: "" )				
+            } else {
+                Logging( "Has unknown driver version", 2 )
+				sendEvent( name: "Version", value: "Unknown driver version", linkText: deviceName, descriptionText: "" )
+            }
+		}
+	}
+}
