@@ -10,7 +10,7 @@
 * Licensing:
 *
 * Version Control:
-* 0.1 - Initial design based on @boblehest Githubcode
+* 0.1 - Initial design based on @boblehest Github code
 * 
 * Thank you(s):
 * This code is based on the original design from @boblehest on Github
