@@ -10,7 +10,7 @@
 * Licensing:
 *
 * Version Control:
-* 0.1 - Initial design based on @boblehest Github code
+* 0.1 - Initial design based on @boblehest Githubcode
 * 
 * Thank you(s):
 * This code is based on the original design from @boblehest on Github
@@ -32,7 +32,8 @@ metadata {
 	preferences {
 		generate_preferences(configuration_model())
         input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
-	}
+        input "extSensorCount", "enum", title: "<b>Number of External Sensors?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: true
+    }
 }
 
 def installed() {
@@ -83,10 +84,13 @@ private childRefresh(String dni) {
  }
 
 private initialize() {
+    if (!binding.hasVariable('state.extSensorCount'))
+        state.extSensorCount=0 as Integer
 	if (!childDevices) {
 		addChildDevices()
         debugOutput = 1
 	}
+    updateChildTemperatureSensors()
 	formatCommands([
         zwave.versionV1.versionGet(),
         zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId),
@@ -121,11 +125,13 @@ private initialize() {
 // ----------------------------------------------------------------------------
 // ------------------------------- CHILD DEVICES ------------------------------
 // ----------------------------------------------------------------------------
-
 private childNetworkId(ep) {
 	"${device.deviceNetworkId}-ep${ep}"
 }
 
+//---------------------------
+// 
+//---------------------------
 private addChildDevices() {
 	try {
 		addChildSwitches()
@@ -183,7 +189,7 @@ private addChildSwitches() {
 
 
 //---------------------------
-// Temperature sensors (EP 7-13), needs rework
+// Temperature sensors (EP 7)
 //---------------------------
 private addChildTemperatureSensors() {
 	(7).eachWithIndex { ep, index ->
@@ -192,9 +198,31 @@ private addChildTemperatureSensors() {
 			completedSetup: true, label: "${device.displayName} - Temperature ${index+1}",
 			isComponent: true])  
     }
+    updateChildTemperatureSensors()
 }
 
-//deleteChildDevice(String deviceNetworkId)
+//---------------------------
+// Temperature sensors (EP 8-13)
+//---------------------------
+private updateChildTemperatureSensors() {
+    ns = extSensorCount.toInteger()
+    if(ns<state.extSensorCount) {
+        ((8+ns)..(7+state.extSensorCount)).eachWithIndex { ep, index -> 
+        deleteChildDevice(childNetworkId(ep))
+        }
+    }
+    else if (ns>state.extSensorCount) {
+	    ((8+state.extSensorCount)..(7+ns)).eachWithIndex { ep, index ->
+        addChildDevice("Fibaro FGBS-222 Child Temperature Sensor",
+			childNetworkId(ep), [componentLabel: "External temperature sensor",
+			completedSetup: true, label: "${device.displayName} - Temperature ${index+2}",
+			isComponent: true])  
+        }
+    }
+    state.extSensorCount = ns 
+}
+
+
 
 //---------------------------
 //
