@@ -59,9 +59,9 @@ private childRefresh(String dni) {
     switch(ep) {
         case 1:
         case 2:
-            // Now way???
-            formatCommands([
-            ], 500)
+            // No way???
+            //formatCommands([
+            //], 500)
             break;
         case 3:
         case 4:
