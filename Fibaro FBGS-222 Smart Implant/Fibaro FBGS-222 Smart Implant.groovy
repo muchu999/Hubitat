@@ -1,5 +1,5 @@
 /*
-* Fibaro FBGS-222 Smart Implant 
+* Fibaro FGBS-222 Smart Implant 
 *
 * Description:
 *
@@ -18,7 +18,7 @@
 
 
 metadata {
-	definition (name: "Fibaro FBGS-222 Smart Implant", namespace: "christi999", author: "") {
+	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
 		capability "Configuration"
       
 
