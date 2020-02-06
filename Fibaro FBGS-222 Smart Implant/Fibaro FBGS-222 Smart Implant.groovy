@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 0.2 - Added device protection settings
 * 0.1 - Initial design based on @boblehest Githubcode
 * 
 * Thank you(s):
@@ -31,8 +32,10 @@ metadata {
 
 	preferences {
 		generate_preferences(configuration_model())
-        input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
         input "extSensorCount", "enum", title: "<b>Number of External Sensors?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: true
+        input "localProtection", "enum", title: "<b>Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
+        input "rfProtection", "enum", title: "<b>RF Device Protection?</b>", description: "0:Unprotected, 2:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
+        input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
     }
 }
 
@@ -93,6 +96,7 @@ private initialize() {
     updateChildTemperatureSensors()
 	formatCommands([
         zwave.versionV1.versionGet(),
+        zwave.protectionV2.protectionSet(localProtectionState : localProtection.toInteger(), rfProtectionState: rfProtection.toInteger() ),
         zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId),
 		zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId),
 		zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: zwaveHubNodeId),
