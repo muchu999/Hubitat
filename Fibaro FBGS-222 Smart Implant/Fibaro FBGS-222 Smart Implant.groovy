@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 0.4 - Adding "ContactSensor" capability to digital Input
 * 0.3 - Changing format of preferences display and fixed code tab/spaces
 * 0.2 - Added device protection settings
 * 0.1 - Initial design based on @boblehest Githubcode
@@ -424,11 +425,11 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport 
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: 0x00) 
+				target?.sendEvent(name: "contact", value: "open") 
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: 0xff)     
+				target?.sendEvent(name: "contact", value: "closed")     
 				break
 			default:
 				break
@@ -455,11 +456,11 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport 
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: 0x00) 
+				target?.sendEvent(name: "contact", value: "open") 
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: 0xff)     
+				target?.sendEvent(name: "contact", value: "closed")     
 				break
 			default:
 				break
@@ -486,11 +487,11 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport 
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: 0x00) 
+				target?.sendEvent(name: "contact", value: "open") 
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: 0xff)     
+				target?.sendEvent(name: "contact", value: "closed")     
 				break
 			default:
 				break
