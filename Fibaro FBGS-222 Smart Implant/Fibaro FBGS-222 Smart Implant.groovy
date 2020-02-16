@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 0.5 - Moved all device commands to "configure", some where sent during "save preferences"
 * 0.4 - Adding "ContactSensor" capability to digital Input
 * 0.3 - Changing format of preferences display and fixed code tab/spaces
 * 0.2 - Added device protection settings
@@ -96,33 +97,6 @@ private initialize() {
 		debugOutput = 1
 	}
 	updateChildTemperatureSensors()
-	formatCommands([
-		zwave.versionV1.versionGet(),
-		zwave.protectionV2.protectionSet(localProtectionState : localProtection.toInteger(), rfProtectionState: rfProtection.toInteger() ),
-		zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId),
-		zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId),
-		zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: zwaveHubNodeId),
-		zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 1, nodeId: [zwaveHubNodeId]),
-		zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 2, nodeId: [zwaveHubNodeId]),
-		zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 3, nodeId: [zwaveHubNodeId]),
-        
-		// Set multichannel associations after they are cleared.
-		// multiChannelAssociationSet starts with a list of nodeIds then the marker "0" followed by list of endpoints (node,ep)
-		// In the case of the Fibaro, if a nodeId for group 1 is provided, it means the hub doesn't support 
-		// multichannels so it won't send automatic reports. We therefore don't provide NodeIds and start directly with the marker "0"
-		// The associations set here will also determine the kind of message signatures received by the hub,
-		// such as notificationReport or basicSet with/without endpoints and or groups...
-		zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 1, nodeId: [0,1,1]),   // 
-		zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 2, nodeId: [0,1,1]),   // Used when IN1 input is triggered (using Basic Command Class).
-		zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 3, nodeId: [0,1,2]),   // Used when IN2 input is triggered (using Basic Command Class).     
-		zwave.associationV2.associationGet( groupingIdentifier: 1),	 
-		zwave.associationV2.associationGet( groupingIdentifier: 2),	
-		zwave.associationV2.associationGet( groupingIdentifier: 3),	
-		zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 1),
-		zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 2),
-		zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 3)
-		], 500)
-        
 }
 
 
@@ -617,6 +591,33 @@ def configure() {
 	def configuration = new XmlSlurper().parseText(configuration_model())
 	def cmds = []
 
+		cmds << zwave.versionV1.versionGet()
+		cmds << zwave.protectionV2.protectionSet(localProtectionState : localProtection.toInteger(), rfProtectionState: rfProtection.toInteger() )
+		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId)
+		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId)
+		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: zwaveHubNodeId)
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 2, nodeId: [zwaveHubNodeId])
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 3, nodeId: [zwaveHubNodeId])
+        
+		// Set multichannel associations after they are cleared.
+		// multiChannelAssociationSet starts with a list of nodeIds then the marker "0" followed by list of endpoints (node,ep)
+		// In the case of the Fibaro, if a nodeId for group 1 is provided, it means the hub doesn't support 
+		// multichannels so it won't send automatic reports. We therefore don't provide NodeIds and start directly with the marker "0"
+		// The associations set here will also determine the kind of message signatures received by the hub,
+		// such as notificationReport or basicSet with/without endpoints and or groups...
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 1, nodeId: [0,1,1])  // 
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 2, nodeId: [0,1,1])   // Used when IN1 input is triggered (using Basic Command Class).
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 3, nodeId: [0,1,2])   // Used when IN2 input is triggered (using Basic Command Class).     
+		cmds << zwave.associationV2.associationGet( groupingIdentifier: 1)	 
+		cmds << zwave.associationV2.associationGet( groupingIdentifier: 2)	
+		cmds << zwave.associationV2.associationGet( groupingIdentifier: 3)	
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 1)
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 2)
+		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 3)
+
+        
+	
 	configuration.Value.each {
        
 		def settingValue = settings[it.@index.toString()].toInteger()
@@ -637,7 +638,7 @@ def configure() {
 	
 	logDebug "cmds: ${cmds}"
 	
-	formatCommands(cmds)
+	formatCommands(cmds, 500)
 }
 
 //---------------------------
