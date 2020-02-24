@@ -39,7 +39,7 @@ metadata {
 		input "extSensorCount", "enum", title: "<b>Number of External Sensors?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: true
 		input "localProtection", "enum", title: "<b>Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
 		input "rfProtection", "enum", title: "<b>RF Device Protection?</b>", description: "0:Unprotected, 2:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
-		input "tempUnits", "enum", title: "<b>Temperature Units?</b>", description: "", options: ["default","F","C"], defaultValue: "default", required: true
+		input "tempUnits", "enum", title: "<b>Temperature Units?</b>", description: "default: The units used by your hub", options: ["default","F","C"], defaultValue: "default", required: true
 		input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
 	}
 }
