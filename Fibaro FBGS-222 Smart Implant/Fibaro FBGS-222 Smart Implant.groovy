@@ -10,17 +10,18 @@
 * Licensing:
 *
 * Version Control:
+* 0.6 - Added some temperature scale handling and driver version info
 * 0.5 - Moved all device commands to "configure", some where sent during "save preferences"
 * 0.4 - Adding "ContactSensor" capability to digital Input
 * 0.3 - Changing format of preferences display and fixed code tab/spaces
 * 0.2 - Added device protection settings
-* 0.1 - Initial design based on @boblehest Githubcode
+* 0.1 - Initial design, based on @boblehest Githubcode
 * 
 * Thank you(s):
 * This code is based on the original design from @boblehest on Github
 */
 
-
+public static String version()      {  return "0.6"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
 		capability "Configuration"
@@ -38,6 +39,7 @@ metadata {
 		input "extSensorCount", "enum", title: "<b>Number of External Sensors?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: true
 		input "localProtection", "enum", title: "<b>Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
 		input "rfProtection", "enum", title: "<b>RF Device Protection?</b>", description: "0:Unprotected, 2:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
+		input "tempUnits", "enum", title: "<b>Temperature Units?</b>", description: "", options: ["default","F","C"], defaultValue: "default", required: true
 		input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
 	}
 }
@@ -90,6 +92,7 @@ private childRefresh(String dni) {
  }
 
 private initialize() {
+	state.driverVersion = "${version()}"
 	if (!binding.hasVariable('state.extSensorCount'))
 		state.extSensorCount=0 as Integer
 	if (!childDevices) {
@@ -309,10 +312,12 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 			target?.sendEvent(name: "voltage", value: cmd.scaledSensorValue)
 			break
 		case 7..13:
-			target?.sendEvent(name: "temperature", value: cmd.scaledSensorValue)
+			(finalVal,units) = convertTemperature(cmd)
+			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${device.displayName} temperature is ${finalVal}${units}" )
 			break
     }
 }
+
 
 //---------------------------
 //
@@ -329,7 +334,8 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
 			target?.sendEvent(name: "voltage", value: cmd.scaledSensorValue)
 			break
 		case 7..13:
-			target?.sendEvent(name: "temperature", value: cmd.scaledSensorValue)
+			(finalVal,units) = convertTemperature(cmd)
+			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${device.displayName} temperature is ${finalVal}${units}" )
 			break
     }
 }
@@ -482,7 +488,7 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport 
 //
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd, ep) {
-	log.debug "basicReport: ep=$ep $cmd"
+	logDebug "basicReport: ep=$ep $cmd"
 	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
 	switch(ep.toInteger()) {
 		case 1..2:
@@ -498,7 +504,7 @@ private zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd, ep) {
 //
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd) {
-	log.debug "basicReport: $cmd"
+	logDebug "basicReport: $cmd"
 }
 
 
@@ -907,6 +913,37 @@ private configuration_model() {
 // ----------------------------------------------------------------------------
 // --------------------------------- HELPERS ----------------------------------
 // ----------------------------------------------------------------------------
+//---------------------------
+//
+//---------------------------
+def convertTemperature(cmd) {
+		if(tempUnits == "default") {
+			units = "\u00b0" + getTemperatureScale()			
+            finalVal = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "F" : "C", cmd.precision)
+		} else if(tempUnits == "F"){
+			units = "\u00b0" + "F"
+			if(cmd.scale == 1) {
+				finalVal = cmd.scaledSensorValue
+			} else {
+				finalVal = cmd.scaledSensorValue * 9.0/5.0 + 32.0
+				factor = 10**cmd.precision
+				finalVal = Math.round(finalVal* factor)/factor
+			}
+			
+		} else {	
+			units = "\u00b0" + "C"
+			if(cmd.scale == 1) {
+				finalVal = (cmd.scaledSensorValue - 32.0) * 5.0/9.0
+				factor = 10**cmd.precision
+				finalVal = Math.round(finalVal* factor)/factor
+			} else {
+				finalVal = cmd.scaledSensorValue
+			}
+		}
+	return [finalVal, units]
+}
+
+
 
 private toEndpoint(cmd, endpoint) {
 	zwave.multiChannelV3.multiChannelCmdEncap(destinationEndPoint: endpoint)
