@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 0.7 - Corrected name of child device for event log of temperature
 * 0.6 - Added some temperature scale handling and driver version info
 * 0.5 - Moved all device commands to "configure", some where sent during "save preferences"
 * 0.4 - Adding "ContactSensor" capability to digital Input
@@ -21,7 +22,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "0.6"  }
+public static String version()      {  return "0.7"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
 		capability "Configuration"
@@ -313,7 +314,7 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 			break
 		case 7..13:
 			(finalVal,units) = convertTemperature(cmd)
-			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${device.displayName} temperature is ${finalVal}${units}" )
+			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${target} temperature is ${finalVal}${units}" )
 			break
     }
 }
@@ -335,7 +336,7 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
 			break
 		case 7..13:
 			(finalVal,units) = convertTemperature(cmd)
-			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${device.displayName} temperature is ${finalVal}${units}" )
+			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${target} temperature is ${finalVal}${units}" )
 			break
     }
 }
