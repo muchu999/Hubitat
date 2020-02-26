@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 0.8 - Corrected incorrect text desctiption of RF protection
 * 0.7 - Corrected name of child device for event log of temperature
 * 0.6 - Added some temperature scale handling and driver version info
 * 0.5 - Moved all device commands to "configure", some where sent during "save preferences"
@@ -22,7 +23,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "0.7"  }
+public static String version()      {  return "0.8"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
 		capability "Configuration"
@@ -39,7 +40,7 @@ metadata {
 		generate_preferences(configuration_model())
 		input "extSensorCount", "enum", title: "<b>Number of External Sensors?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: true
 		input "localProtection", "enum", title: "<b>Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
-		input "rfProtection", "enum", title: "<b>RF Device Protection?</b>", description: "0:Unprotected, 2:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
+		input "rfProtection", "enum", title: "<b>RF Device Protection?</b>", description: "0:Unprotected, 1:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
 		input "tempUnits", "enum", title: "<b>Temperature Units?</b>", description: "default: The units used by your hub", options: ["default","F","C"], defaultValue: "default", required: true
 		input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
 	}
