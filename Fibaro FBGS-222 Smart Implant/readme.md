@@ -21,6 +21,6 @@ From the Hubitat community: https://community.hubitat.com/t/fibaro-smart-implant
  configuration parameters are sent over the air to the implant, this can take some times (10 to 30 sec), check the log to see 
  what is happening if you want.
  
- -The data from the implant might not be updated wight away when the driver is first installed... In the case of the digital
+ -The data from the implant might not be updated right away when the driver is first installed... In the case of the digital
   input with notifications, a notification will only be sent once the state of the input changes. You therefore have to change
   the input manually at least once before the child device will be updated.
