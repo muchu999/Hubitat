@@ -22,5 +22,6 @@ From the Hubitat community: https://community.hubitat.com/t/fibaro-smart-implant
  what is happening if you want.
  
 -The data from the implant might not be updated right away when the driver is first installed. In the case of the digital
- input (with notifications), a notification will only be sent once the state of the input changes. You therefore have to change
- the input manually at least once before the child device will be updated.
+ inputs (with notifications), a notification will only be sent by the implant once the state of the input changes. You therefore 
+ have to change the input state (contact sensor or whatever else you are using) manually at least once before the child device will 
+ register the current state of the input.
