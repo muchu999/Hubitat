@@ -10,12 +10,12 @@ From the Hubitat community: https://community.hubitat.com/t/fibaro-smart-implant
  has acted upon its corresponding output, it is always possible to set it back to whatever you want using the switch commands.
  Enabling local protection (local protection value=2) will allow the the outputs to be independant from the inputs
 
--The on-board temperature sensor always report high because it is heated by the device.
+-The on-board temperature sensor always report high the device itself generates some heat.
 
--There is little support for the zwave scenes and buttons modes, not many people are uising those features afaik.
+-There is little support for the zwave scenes and buttons modes. Not many people are using those features afaik.
 
--Some of the commands in the parent device are there just so they work for the children, use the commands in the 
- children devices for setting outputs and refresh
+-Some of the commands in the parent device are present just so they work for the children. Use the commands in the 
+ children devices for setting outputs (switches) or refresh temperature.
 
 -Don't forget to "save preferences" and then press the "configure" button when changing parameters. When configure is pressed, 
  configuration parameters are sent over the air to the implant, this can take some times (10 to 30 sec), check the log to see 
