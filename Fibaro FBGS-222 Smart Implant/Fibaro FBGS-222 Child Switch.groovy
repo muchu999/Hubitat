@@ -4,6 +4,7 @@ metadata {
 		capability "Refresh"
 		capability "Sensor"
 		capability "Switch"
+        	capability "Momentary"
 	}
 
 	tiles {
@@ -26,4 +27,9 @@ void off() {
 
 void refresh() {
 	parent.childRefresh(device.deviceNetworkId)
+}
+
+void push() {
+    parent.childOn(device.deviceNetworkId)
+    parent.childOff(device.deviceNetworkId)
 }
