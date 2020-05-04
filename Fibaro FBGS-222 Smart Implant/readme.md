@@ -18,7 +18,7 @@ From the Hubitat community: https://community.hubitat.com/t/fibaro-smart-implant
  children devices for setting outputs (switches) or refresh temperature.
 
 -Don't forget to "save preferences" and then press the "configure" button when changing parameters. When configure is pressed, 
- configuration parameters are sent over the air to the implant, this can take some times (10 to 30 sec), check the log to see 
+ configuration parameters are sent over the air to the implant, this can take some times (1 minute), check the log to see 
  what is happening if you want.
  
 -The data from the implant might not be updated right away when the driver is first installed. In the case of the digital
