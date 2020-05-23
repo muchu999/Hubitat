@@ -10,7 +10,7 @@
 * Licensing:
 *
 * Version Control:
-* 0.10 - Changed description strings
+* 1.0  - Changed description strings
 * 0.9  - Added temperature calibration offsets for sensors
 * 0.8  - Corrected incorrect text desctiption of RF protection
 * 0.7  - Corrected name of child device for event log of temperature
@@ -25,7 +25,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "0.10"  }
+public static String version()      {  return "1.0"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
 		capability "Configuration"
