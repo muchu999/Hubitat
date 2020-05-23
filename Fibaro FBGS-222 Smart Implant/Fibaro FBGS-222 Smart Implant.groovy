@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 0.9 - Added temperature calibration offsets for sensors
 * 0.8 - Corrected incorrect text desctiption of RF protection
 * 0.7 - Corrected name of child device for event log of temperature
 * 0.6 - Added some temperature scale handling and driver version info
@@ -23,7 +24,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "0.8"  }
+public static String version()      {  return "0.9"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
 		capability "Configuration"
@@ -38,7 +39,14 @@ metadata {
 
 	preferences {
 		generate_preferences(configuration_model())
-		input "extSensorCount", "enum", title: "<b>Number of External Sensors?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: true
+        input name:"sensorOffset0",  type:"decimal", title:"<b>Internal Sensor Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
+		input "extSensorCount", "enum", title: "<b>Number of External Sensors?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: false
+        input name:"sensorOffset1", type:"decimal", title:"<b>External Sensor Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
+        input name:"sensorOffset2", type:"decimal", title:"<b>External Sensor Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
+        input name:"sensorOffset3", type:"decimal", title:"<b>External Sensor Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
+        input name:"sensorOffset4", type:"decimal", title:"<b>External Sensor Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
+        input name:"sensorOffset5", type:"decimal", title:"<b>External Sensor Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
+        input name:"sensorOffset6", type:"decimal", title:"<b>External Sensor Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
 		input "localProtection", "enum", title: "<b>Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
 		input "rfProtection", "enum", title: "<b>RF Device Protection?</b>", description: "0:Unprotected, 1:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
 		input "tempUnits", "enum", title: "<b>Temperature Units?</b>", description: "default: The units used by your hub", options: ["default","F","C"], defaultValue: "default", required: true
@@ -306,7 +314,9 @@ private zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd,
 private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, ep) {
 	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
 	logDebug "Sensor @ endpoint ${ep} has value ${cmd.scaledSensorValue} - ep=$ep $target $cmd "
-	switch(ep.toInteger()) {
+	
+	endpoint = ep.toInteger() 
+	switch(endpoint) {
 		case 1..2:
 			target?.sendEvent(name: "contact", value: cmd.scaledSensorValue)
 			break
@@ -315,6 +325,8 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 			break
 		case 7..13:
 			(finalVal,units) = convertTemperature(cmd)
+			finalVal = finalVal.toFloat() + settings["${"sensorOffset" + (endpoint-7).toString()}"]
+			finalVal = Math.round(finalVal* 10.0)/10.0
 			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${target} temperature is ${finalVal}${units}" )
 			break
     }
@@ -328,7 +340,9 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
     
 	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
 	logDebug "Sensor @ endpoint ${ep} has value ${cmd.scaledSensorValue} - ep=$ep sp=$sp $target $cmd "
-	switch(ep.toInteger()) {
+	
+	endpoint = ep.toInteger() 
+	switch(endpoint) {
 		case 1..2:
 			target?.sendEvent(name: "contact", value: cmd.scaledSensorValue)
 			break
@@ -337,6 +351,8 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
 			break
 		case 7..13:
 			(finalVal,units) = convertTemperature(cmd)
+			finalVal = finalVal.toFloat() + settings["${"sensorOffset" + (endpoint-7).toString()}"]
+			finalVal = Math.round(finalVal* 10.0)/10.0
 			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${target} temperature is ${finalVal}${units}" )
 			break
     }
