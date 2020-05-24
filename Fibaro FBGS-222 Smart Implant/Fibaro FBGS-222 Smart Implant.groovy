@@ -10,6 +10,9 @@
 * Licensing:
 *
 * Version Control:
+* 1.2  - Removed child commands from parent device and corrected code accordingly using sendHubCommand().
+*        Corrected state variable handling for driver version and number of external sensors
+* 1.1  - Fixed state variables handling (version was not updated)
 * 1.0  - Changed description strings
 * 0.9  - Added temperature calibration offsets for sensors
 * 0.8  - Corrected incorrect text desctiption of RF protection
@@ -25,15 +28,13 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.0"  }
+public static String version()      {  return "1.2"  }
 metadata {
-	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
+	definition (name: "Fibaro generic Smart Implant", namespace: "boblehest", author: "") {
 		capability "Configuration"
-      
-
-		command "childOn"        // Needs to be here or child call will not work...
-		command "childOff"       // Needs to be here or child call will not work...
-		command "childRefresh"   // Needs to be here or child call will not work...
+		
+		attribute "extSensorChildCount",  "number" 
+		attribute "driverVersion",        "string"   
          
 		fingerprint deviceId: "4096", inClusters: "0x5E,0x25,0x85,0x8E,0x59,0x55,0x86,0x72,0x5A,0x73,0x98,0x9F,0x5B,0x31,0x60,0x70,0x56,0x71,0x75,0x7A,0x6C,0x22"
 	}
@@ -57,6 +58,8 @@ metadata {
 
 def installed() {
 	logDebug "installed"
+    state.driverVersion = "${version()}"
+    state.extSensorChildCount = 0
 	initialize()
 }
 
@@ -65,47 +68,9 @@ def updated() {
 	initialize()
 }
 
-//def refresh(){
-//}
-
-//---------------------------
-// Will not work if called from child and "childRefresh" is not in "command" metadata definition
-//---------------------------
-private childRefresh(String dni) {
-	def ep = channelNumber(dni).toInteger()
-	logDebug "childRefresh, ep=$ep"   
-    
-	switch(ep) {
-		case 1:
-		case 2:
-			// No way???
-			//formatCommands([
-			//], 500)
-			break;
-		case 3:
-		case 4:
-			formatCommands([
-				toEndpoint(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x15), ep),              
-			], 500 )
-			break;
-		case 5:
-		case 6:
-			formatCommands([
-			toEndpoint(zwave.switchBinaryV1.switchBinaryGet(), ep)
-			], 500 )
-			break;
-		case 7..13:
-			formatCommands([
-     			toEndpoint(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01), ep)
-			], 500)
-			break;
-	}
- }
 
 private initialize() {
 	state.driverVersion = "${version()}"
-	if (!binding.hasVariable('state.extSensorCount'))
-		state.extSensorCount=0 as Integer
 	if (!childDevices) {
 		addChildDevices()
 		debugOutput = 1
@@ -131,8 +96,9 @@ private addChildDevices() {
         addChildDigitalInputs()
         addChildTemperatureSensors()        
 	} catch (e) {
+		logDebug("Child device creation failed")
 		sendEvent(
-			descriptionText: "Child device creation failed.",
+			descriptionText: "Child device creation failed",
 			eventType: "ALERT",
 			name: "childDeviceCreation",
 			value: e.toString(),
@@ -198,41 +164,67 @@ private addChildTemperatureSensors() {
 //---------------------------
 private updateChildTemperatureSensors() {
 	ns = extSensorCount.toInteger()
-	if(ns<state.extSensorCount) {
-		((8+ns)..(7+state.extSensorCount)).eachWithIndex { ep, index -> 
+	if(ns < state.extSensorChildCount) {
+		((8+ns)..(7 + state.extSensorChildCount)).eachWithIndex { ep, index -> 
 		deleteChildDevice(childNetworkId(ep))
 		}
 	}
-	else if (ns>state.extSensorCount) {
-		((8+state.extSensorCount)..(7+ns)).eachWithIndex { ep, index ->
+	else if (ns > state.extSensorChildCount) {
+		((8 + (state.extSensorChildCount).toInteger())..(7+ns)).eachWithIndex { ep, index ->
 		addChildDevice("Fibaro FGBS-222 Child Temperature Sensor",
 			childNetworkId(ep), [componentLabel: "External temperature sensor",
 			completedSetup: true, label: "${device.displayName} - Temperature ${index+2}",
 			isComponent: true])  
 		}
 	}
-	state.extSensorCount = ns 
+	state.extSensorChildCount = ns 
 }
 
 
 
 //---------------------------
+// 
+//---------------------------
+private childRefresh(String dni) {
+	def ep = channelNumber(dni).toInteger()
+	logDebug "childRefresh, ep=$ep"   
+    
+	switch(ep) {
+		case 1:
+		case 2:
+			// No way to refresh this???
+			//formatCommands([
+			//], 500)
+			break;
+		case 3:
+		case 4:
+			formatCommands([
+				toEndpoint(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x15), ep),              
+			], 500 )
+			break;
+		case 5:
+		case 6:
+			formatCommands([
+			toEndpoint(zwave.switchBinaryV1.switchBinaryGet(), ep)
+			], 500 )
+			break;
+		case 7..13:
+			formatCommands([
+     			toEndpoint(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x01), ep)
+			], 500)
+
+			break;
+	}
+ }
+
+//---------------------------
 //
 //---------------------------
 private setSwitch(value, channel) {
-	def cmds = [
-		toEndpoint(zwave.switchBinaryV1.switchBinarySet(switchValue: value), channel).format(),
-		toEndpoint(zwave.switchBinaryV1.switchBinaryGet(), channel).format(),
-	]
-
-	if (value) {
-		cmds + [
-			"delay 3500",
-			toEndpoint(zwave.switchBinaryV1.switchBinaryGet(), channel).format(),
-		]
-	} else {
-		cmds
-	}
+	def cmds = []
+	cmds << toEndpoint(zwave.switchBinaryV1.switchBinarySet(switchValue: value), channel)
+	cmds <<	toEndpoint(zwave.switchBinaryV1.switchBinaryGet(), channel)
+	formatCommands(cmds,500)
 }
 
 //---------------------------
@@ -974,11 +966,11 @@ private toEndpoint(cmd, endpoint) {
 //---------------------------
 private formatCommands(cmds, delay=null) {
 	def formattedCmds = cmds.collect { it.format() }
-
+	
 	if (delay) {
-		delayBetween(formattedCmds, delay)
+		sendHubCommand(new hubitat.device.HubMultiAction(delayBetween(formattedCmds,delay), hubitat.device.Protocol.ZWAVE))
 	} else {
-		formattedCmds
+		sendHubCommand(new hubitat.device.HubMultiAction(formattedCmds, hubitat.device.Protocol.ZWAVE))
 	}
 }
 	
