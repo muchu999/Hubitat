@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.3  - Stupid double configuration mistake
 * 1.2  - Removed child commands from parent device and corrected code accordingly using sendHubCommand().
 *        Corrected state variable handling for driver version and number of external sensors
 * 1.1  - Fixed state variables handling (version was not updated)
@@ -28,9 +29,9 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.2"  }
+public static String version()      {  return "1.3"  }
 metadata {
-	definition (name: "Fibaro generic Smart Implant", namespace: "boblehest", author: "") {
+	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {	
 		capability "Configuration"
 		
 		attribute "extSensorChildCount",  "number" 
