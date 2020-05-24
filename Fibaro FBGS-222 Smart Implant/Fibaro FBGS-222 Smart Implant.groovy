@@ -164,6 +164,9 @@ private addChildTemperatureSensors() {
 //---------------------------
 private updateChildTemperatureSensors() {
 	ns = extSensorCount.toInteger()
+	if(!state.extSensorChildCount)
+		state.extSensorChildCount=0
+	
 	if(ns < state.extSensorChildCount) {
 		((8+ns)..(7 + state.extSensorChildCount)).eachWithIndex { ep, index -> 
 		deleteChildDevice(childNetworkId(ep))
