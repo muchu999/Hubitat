@@ -14,9 +14,6 @@ From the Hubitat community: https://community.hubitat.com/t/fibaro-smart-implant
 
 -There is little support for the zwave scenes and buttons modes. Not many people are using those features afaik.
 
--Some of the commands in the parent device are present just so they work for the children. Use the commands in the 
- children devices for setting outputs (switches) or refresh temperature.
-
 -Don't forget to "save preferences" and then press the "configure" button when changing parameters. When configure is pressed, 
  configuration parameters are sent over the air to the implant, this can take some times (1 minute), check the log to see 
  what is happening if you want.
