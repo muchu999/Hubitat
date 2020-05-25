@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.4  - Added Local/RF protection individually for in/out 1 and in/out 2
 * 1.3  - Stupid double configuration mistake
 * 1.2  - Removed child commands from parent device and corrected code accordingly using sendHubCommand().
 *        Corrected state variable handling for driver version and number of external sensors
@@ -29,7 +30,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.3"  }
+public static String version()      {  return "1.4"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {	
 		capability "Configuration"
@@ -50,8 +51,10 @@ metadata {
 		input name:"sensorOffset4", type:"decimal", title:"<b>External Sensor 4 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
 		input name:"sensorOffset5", type:"decimal", title:"<b>External Sensor 5 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
 		input name:"sensorOffset6", type:"decimal", title:"<b>External Sensor 6 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
-		input "localProtection", "enum", title: "<b>Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
-		input "rfProtection", "enum", title: "<b>RF Device Protection?</b>", description: "0:Unprotected, 1:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
+		input "localProtection1", "enum", title: "<b>Input/Output 1 - Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
+		input "rfProtection1", "enum", title: "<b>Input/Output 1 - RF Device Protection?</b>", description: "0:Unprotected, 1:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
+		input "localProtection2", "enum", title: "<b>Input/Output 2 - Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
+		input "rfProtection2", "enum", title: "<b>Input/Output 2 - RF Device Protection?</b>", description: "0:Unprotected, 1:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
 		input "tempUnits", "enum", title: "<b>Temperature Units?</b>", description: "default: The units used by your hub", options: ["default","F","C"], defaultValue: "default", required: true
 		input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
 	}
@@ -613,7 +616,8 @@ def configure() {
 	def cmds = []
 
 		cmds << zwave.versionV1.versionGet()
-		cmds << zwave.protectionV2.protectionSet(localProtectionState : localProtection.toInteger(), rfProtectionState: rfProtection.toInteger() )
+		cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection1.toInteger(), rfProtectionState: rfProtection1.toInteger()), 5)
+		cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection2.toInteger(), rfProtectionState: rfProtection2.toInteger()), 6)
 		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId)
 		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId)
 		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: zwaveHubNodeId)
