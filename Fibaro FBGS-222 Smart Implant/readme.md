@@ -6,9 +6,8 @@ From the Hubitat community: https://community.hubitat.com/t/fibaro-smart-implant
 -Periodic reports only work when multiChannelAssociation is set in a very specific way. Nothing you should worry about 
  unless you plan on changing the code...
  
--By default, outputs are individually linked to the digital inputs unless the inputs are set to be analog. Once the input 
- has acted upon its corresponding output, it is always possible to set it back to whatever you want using the switch commands.
- Enabling local protection (local protection value=2) will allow the the outputs to be independant from the inputs
+-By default, outputs are individually linked to the digital inputs unless the inputs are set to be analog. Use 
+ local protection = 2 to decouple outputs from intputs.
 
 -The on-board temperature sensor always report high the device itself generates some heat.
 
