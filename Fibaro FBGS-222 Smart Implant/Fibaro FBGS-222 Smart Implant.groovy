@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.5  - Added support for Z-WAVE secure mode
 * 1.4  - Added Local/RF protection individually for in/out 1 and in/out 2
 * 1.3  - Stupid double configuration mistake
 * 1.2  - Removed child commands from parent device and corrected code accordingly using sendHubCommand().
@@ -30,7 +31,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.4"  }
+public static String version()      {  return "1.5"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {	
 		capability "Configuration"
@@ -62,8 +63,8 @@ metadata {
 
 def installed() {
 	logDebug "installed"
-    state.driverVersion = "${version()}"
-    state.extSensorChildCount = 0
+	state.driverVersion = "${version()}"
+	state.extSensorChildCount = 0
 	initialize()
 }
 
@@ -96,9 +97,9 @@ private childNetworkId(ep) {
 private addChildDevices() {
 	try {
 		addChildSwitches()
-        addChildAnalogInputs()
-        addChildDigitalInputs()
-        addChildTemperatureSensors()        
+		addChildAnalogInputs()
+		addChildDigitalInputs()
+		addChildTemperatureSensors()
 	} catch (e) {
 		logDebug("Child device creation failed")
 		sendEvent(
@@ -280,8 +281,8 @@ private zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cm
 	if (encapsulatedCommand) {
 		if(cmd.destinationEndPoint != 0) {
 			zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint, cmd.destinationEndPoint)
-        	}
-        	else {
+ 		}
+ 		else {
 			zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint)
 		}
 	} 
@@ -329,7 +330,7 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 			finalVal = Math.round(finalVal* 10.0)/10.0
 			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${target} temperature is ${finalVal}${units}" )
 			break
-    }
+	}
 }
 
 
@@ -355,7 +356,7 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
 			finalVal = Math.round(finalVal* 10.0)/10.0
 			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${target} temperature is ${finalVal}${units}" )
 			break
-    }
+	}
 }
 
 
@@ -591,8 +592,6 @@ private zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
 	//    log.warn "--- WARNING: Device handler expects devices to have firmware 1.10 or later"
 }
 
-
-
 //---------------------------
 //
 //---------------------------
@@ -601,6 +600,19 @@ private zwaveEvent(hubitat.zwave.Command cmd, ep=null) {
 	//device = getChildDevice(deviceNetworkId)
 	//createEvent(descriptionText: "${device.displayName}: ${cmd}")
 
+}
+
+//---------------------------
+//
+//---------------------------
+private zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
+	logDebug "SecurityMessageEncapsulation: $cmd"
+	hubitat.zwave.Command encapsulatedCommand = cmd.encapsulatedCommand(CMD_CLASS_VERS)
+	if (encapsulatedCommand) {
+		zwaveEvent(encapsulatedCommand)
+	} else {
+		log.warn "Unable to extract encapsulated cmd from ${cmd}"
+	}
 }
 
 		
@@ -687,7 +699,7 @@ private generate_preferences(configuration_model) {
 				// it.Item.each { items << ["${it.@value}": "${it.@label}"] }
 				def items = it.Item.collect { ["${it.@value}": "${it.@label}"] }
 				input "${it.@index}", "enum",
-				    title: "<b>${it.@label}</b>",
+					title: "<b>${it.@label}</b>",
 					description: "${it.Help}",
 					defaultValue: "${it.@value}",
 					displayDuringSetup: "${it.@displayDuringSetup}",
@@ -938,7 +950,7 @@ private configuration_model() {
 def convertTemperature(cmd) {
 		if(tempUnits == "default") {
 			units = "\u00b0" + getTemperatureScale()			
-            finalVal = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "F" : "C", cmd.precision)
+			finalVal = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "F" : "C", cmd.precision)
 		} else if(tempUnits == "F"){
 			units = "\u00b0" + "F"
 			if(cmd.scale == 1) {
@@ -963,7 +975,30 @@ def convertTemperature(cmd) {
 }
 
 
+//---------------------------
+//
+//---------------------------
+String secureCommand(hubitat.zwave.Command cmd) {
+	secureCommand(cmd.format())
+}
 
+
+//---------------------------
+//
+//---------------------------
+String secureCommand(String cmd) {
+	String encap=""
+	if (getDataValue("zwaveSecurePairingComplete") != "true") {
+		return cmd
+	} else {
+		encap = "988100"
+	}
+	return "${encap}${cmd}"
+}
+
+//---------------------------
+//
+//---------------------------
 private toEndpoint(cmd, endpoint) {
 	zwave.multiChannelV3.multiChannelCmdEncap(destinationEndPoint: endpoint)
 		.encapsulate(cmd)
@@ -973,7 +1008,7 @@ private toEndpoint(cmd, endpoint) {
 //
 //---------------------------
 private formatCommands(cmds, delay=null) {
-	def formattedCmds = cmds.collect { it.format() }
+	def formattedCmds = cmds.collect { secureCommand(it.format()) }
 	
 	if (delay) {
 		sendHubCommand(new hubitat.device.HubMultiAction(delayBetween(formattedCmds,delay), hubitat.device.Protocol.ZWAVE))
@@ -1021,7 +1056,7 @@ private sizeOfParameter(paramData) {
 //---------------------------
 def logDebug(msg) {
 	if(debugOutput) {
-        log.debug "{$msg}"
+		log.debug "{$msg}"
 	}
 }
 
