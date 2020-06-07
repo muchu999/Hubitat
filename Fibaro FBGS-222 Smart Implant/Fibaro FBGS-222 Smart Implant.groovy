@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.6  - Update after HUB update broke compatibility
 * 1.5  - Added support for Z-WAVE secure mode
 * 1.4  - Added Local/RF protection individually for in/out 1 and in/out 2
 * 1.3  - Stupid double configuration mistake
@@ -31,7 +32,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.5"  }
+public static String version()      {  return "1.6"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {	
 		capability "Configuration"
@@ -290,6 +291,25 @@ private zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cm
 		log.warn "Ignored encapsulated command: ${cmd}"
 	}
 }
+
+//---------------------------
+//
+//---------------------------
+private zwaveEvent(hubitat.zwave.commands.multichannelv4.MultiChannelCmdEncap cmd) {
+	def encapsulatedCommand = cmd.encapsulatedCommand()
+	if (encapsulatedCommand) {
+		if(cmd.destinationEndPoint != 0) {
+			zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint, cmd.destinationEndPoint)
+ 		}
+ 		else {
+			zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint)
+		}
+	} 
+	else {
+		log.warn "Ignored encapsulated command: ${cmd}"
+	}
+}
+
 
 //---------------------------
 //
