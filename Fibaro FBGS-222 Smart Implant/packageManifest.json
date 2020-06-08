@@ -4,7 +4,6 @@
   "version": "1.7.0",
   "minimumHEVersion": "2.1.8",
   "dateReleased": "2020-06-08",
-  "releaseNotes": "Adding support for Hubitat Package Manager"
   "drivers": [
     {
       "id": "81a7b38b-28fe-48b7-a6ac-65ff3c30486c",
