@@ -10,31 +10,32 @@
 * Licensing:
 *
 * Version Control:
-* 1.6  - Update after HUB update broke compatibility
-* 1.5  - Added support for Z-WAVE secure mode
-* 1.4  - Added Local/RF protection individually for in/out 1 and in/out 2
-* 1.3  - Stupid double configuration mistake
-* 1.2  - Removed child commands from parent device and corrected code accordingly using sendHubCommand().
-*        Corrected state variable handling for driver version and number of external sensors
-* 1.1  - Fixed state variables handling (version was not updated)
-* 1.0  - Changed description strings
-* 0.9  - Added temperature calibration offsets for sensors
-* 0.8  - Corrected incorrect text desctiption of RF protection
-* 0.7  - Corrected name of child device for event log of temperature
-* 0.6  - Added some temperature scale handling and driver version info
-* 0.5  - Moved all device commands to "configure", some where sent during "save preferences"
-* 0.4  - Adding "ContactSensor" capability to digital Input
-* 0.3  - Changing format of preferences display and fixed code tab/spaces
-* 0.2  - Added device protection settings
-* 0.1  - Initial design, based on @boblehest Githubcode
+* 1.7.0 - Adding support for Hubitat Package Manager
+* 1.6   - Update after HUB update broke compatibility
+* 1.5   - Added support for Z-WAVE secure mode
+* 1.4   - Added Local/RF protection individually for in/out 1 and in/out 2
+* 1.3   - Stupid double configuration mistake
+* 1.2   - Removed child commands from parent device and corrected code accordingly using sendHubCommand().
+*         Corrected state variable handling for driver version and number of external sensors
+* 1.1   - Fixed state variables handling (version was not updated)
+* 1.0   - Changed description strings
+* 0.9   - Added temperature calibration offsets for sensors
+* 0.8   - Corrected incorrect text desctiption of RF protection
+* 0.7   - Corrected name of child device for event log of temperature
+* 0.6   - Added some temperature scale handling and driver version info
+* 0.5   - Moved all device commands to "configure", some where sent during "save preferences"
+* 0.4   - Adding "ContactSensor" capability to digital Input
+* 0.3   - Changing format of preferences display and fixed code tab/spaces
+* 0.2   - Added device protection settings
+* 0.1   - Initial design, based on @boblehest Githubcode
 * 
 * Thank you(s):
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.6"  }
+public static String version()      {  return "1.7.0"  }
 metadata {
-	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {	
+	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
 		capability "Configuration"
 		
 		attribute "extSensorChildCount",  "number" 
