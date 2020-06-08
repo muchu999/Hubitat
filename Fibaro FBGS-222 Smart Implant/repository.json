@@ -1,0 +1,13 @@
+{
+  "author": "christi999",
+  "gitHubUrl": "https://github.com/muchu999/Hubitat/tree/master/Fibaro%20FBGS-222%20Smart%20Implant",
+  "payPalUrl": "https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7LBRPJRLJSDDN&source=url",
+  "packages": [
+    {
+      "name": "Fibaro Smart Implant FGBS-222",
+      "category": "Integrations",
+      "location": "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/packageManifest.json",
+      "description": "Driver for Fibaro Smart Implant FGBS-222"
+    }
+  ]
+}
