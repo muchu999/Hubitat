@@ -27,7 +27,7 @@
 //
 //---------------------------
 metadata {
-	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "boblehest", author: "Jørn Lode") {
+	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "Jørn Lode") {
 		capability "Configuration"
 		capability "Actuator"
 		capability "Refresh"        
