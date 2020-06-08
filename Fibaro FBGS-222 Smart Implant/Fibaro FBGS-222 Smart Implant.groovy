@@ -452,6 +452,20 @@ private zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cm
 //---------------------------
 //
 //---------------------------
+private zwaveEvent(hubitat.zwave.commands.multichannelv4.MultiChannelCmdEncap cmd) {
+	def encapsulatedCommand = cmd.encapsulatedCommand()
+	if (encapsulatedCommand) {
+		logDebug "Not Ignored encapsulated command: ${cmd}"        
+		zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint)
+	} else {
+		logDebug "Ignored encapsulated command: ${cmd}"
+	}
+}
+
+
+//---------------------------
+//
+//---------------------------
 private zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd, ep) {
     logDebug "----SwitchBinaryReport: ${cmd} "    
 	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }
