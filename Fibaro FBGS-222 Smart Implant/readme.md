@@ -1,4 +1,4 @@
-From the Hubitat community: https://community.hubitat.com/t/fibaro-smart-implant/10527/15
+From the Hubitat community: https://community.hubitat.com/t/release-fibaro-smart-implant-fgbs-222/42983
 
 -Install the 5 files as 5 drivers. Use the main driver file "...smart implant" for the device "type" of the device. 
  This main driver will take care of using the other drivers as required (it will create child devices automatically).
