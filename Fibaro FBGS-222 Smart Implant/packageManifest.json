@@ -1,7 +1,7 @@
 {
   "packageName": "Fibaro Smart Implant FGBS-222",
   "author": "christi999",
-  "version": "1.7.0",
+  "version": "1.6.0",
   "minimumHEVersion": "2.1.8",
   "dateReleased": "2020-06-08",
   "drivers": [
