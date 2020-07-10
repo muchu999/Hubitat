@@ -678,7 +678,7 @@ def configure() {
 	
 	configuration.Value.each {
        
-		def settingValue = settings[it.@index.toString()].toInteger()
+		def settingValue = settings[it.@index.toString()]?.toInteger()
 		def byteSize = sizeOfParameter(it)
 
 		if (settingValue != null) {
