@@ -1045,7 +1045,7 @@ String secureCommand(String cmd) {
     } else if ((S2 & 0x80) == 0x80) { //S0 on C7
         encap = "988100"
     }
-    log.debug keyUsed
+    logDebug "$keyUsed"
     return "${encap}${cmd}"
 }
 
