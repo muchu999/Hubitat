@@ -1025,13 +1025,28 @@ String secureCommand(hubitat.zwave.Command cmd) {
 //
 //---------------------------
 String secureCommand(String cmd) {
-	String encap=""
-	if (getDataValue("zwaveSecurePairingComplete") != "true") {
-		return cmd
-	} else {
-		encap = "988100"
-	}
-	return "${encap}${cmd}"
+    if (getDataValue("zwaveSecurePairingComplete") != "true") {
+        return cmd
+    }
+    Short S2 = getDataValue("S2")?.toInteger()
+    String encap = ""
+    String keyUsed = "S0"
+    if (S2 == null) { //S0 existing device
+        encap = "988100"
+    } else if ((S2 & 0x04) == 0x04) { //S2_ACCESS_CONTROL
+        keyUsed = "S2_ACCESS_CONTROL"
+        encap = "9F0304"
+    } else if ((S2 & 0x02) == 0x02) { //S2_AUTHENTICATED
+        keyUsed = "S2_AUTHENTICATED"
+        encap = "9F0302"
+    } else if ((S2 & 0x01) == 0x01) { //S2_UNAUTHENTICATED
+        keyUsed = "S2_UNAUTHENTICATED"
+        encap = "9F0301"
+    } else if ((S2 & 0x80) == 0x80) { //S0 on C7
+        encap = "988100"
+    }
+    log.debug keyUsed
+    return "${encap}${cmd}"
 }
 
 //---------------------------
