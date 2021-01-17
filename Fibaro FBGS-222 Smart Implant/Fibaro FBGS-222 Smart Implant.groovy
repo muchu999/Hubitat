@@ -1,12 +1,12 @@
 /*
-* Fibaro FGBS-222 Smart Implant 
+* Fibaro FGBS-222 Smart Implant
 *
 * Description:
 *
 * Required Information:
 *
 * Features List:
-* 
+*
 * Licensing:
 *
 * Version Control:
@@ -30,20 +30,21 @@
 * 0.3   - Changing format of preferences display and fixed code tab/spaces
 * 0.2   - Added device protection settings
 * 0.1   - Initial design, based on @boblehest Githubcode
-* 
+*
 * Thank you(s):
 * This code is based on the original design from @boblehest on Github
 */
 
 public static String version()      {  return "1.7.2"  }
 metadata {
-	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
-		command( "Reinstall", [["name":"Confirmation*",	"description":"Choose Yes to confirm reinstalling the driver, child devices and state variables will be erased", "type":"ENUM", "constraints":["no","yes"]]])		
+	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {
+		command( "Reinstall", [["name":"Confirmation*",	"description":"Choose Yes to confirm reinstalling the driver, child devices and state variables will be erased", "type":"ENUM", "constraints":["no","yes"]]])
+    command( "CheckConfig" )
 		capability "Configuration"
-		
-		attribute "extSensorChildCount",  "number" 
-		attribute "driverVersion",        "string"   
-         
+
+		attribute "extSensorChildCount",  "number"
+		attribute "driverVersion",        "string"
+
 		fingerprint deviceId: "4096", inClusters: "0x5E,0x25,0x85,0x8E,0x59,0x55,0x86,0x72,0x5A,0x73,0x98,0x9F,0x5B,0x31,0x60,0x70,0x56,0x71,0x75,0x7A,0x6C,0x22"
 	}
 
@@ -62,7 +63,7 @@ metadata {
 		input "localProtection2", "enum", title: "<b>Input/Output 2 - Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
 		input "rfProtection2", "enum", title: "<b>Input/Output 2 - RF Device Protection?</b>", description: "0:Unprotected, 1:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
 		input "tempUnits", "enum", title: "<b>Temperature Units?</b>", description: "default: The units used by your hub", options: ["default","F","C"], defaultValue: "default", required: true
-		input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
+		input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true
 	}
 }
 
@@ -75,6 +76,7 @@ def Reinstall(confirm) {
 		installed()
 	}
 }
+
 
 def removeChildDevices(delete) {
 	delete.each {deleteChildDevice(it.deviceNetworkId)}
@@ -112,7 +114,7 @@ private childNetworkId(ep) {
 }
 
 //---------------------------
-// 
+//
 //---------------------------
 private addChildDevices() {
 	try {
@@ -140,7 +142,7 @@ private addChildDevices() {
  		addChildDevice("Fibaro FGBS-222 Child Digital Input",
 			childNetworkId(ep), [componentLabel: "Input ${index+1} - Digital",
 			completedSetup: true, label: "${device.displayName} - Digital Input ${index+1}",
-			isComponent: true])                               
+			isComponent: true])
  	}
 }
 
@@ -153,7 +155,7 @@ private addChildAnalogInputs() {
 		addChildDevice("Fibaro FGBS-222 Child Analog Input",
 			childNetworkId(ep), [componentLabel: "Input ${index+1} - Analog",
 			completedSetup: true, label: "${device.displayName} - Analog Input ${index+1}",
-			isComponent: true])        
+			isComponent: true])
 	}
 }
 
@@ -179,7 +181,7 @@ private addChildTemperatureSensors() {
 	addChildDevice("Fibaro FGBS-222 Child Temperature Sensor",
 			childNetworkId(ep), [componentLabel: "Internal temperature sensor",
 			completedSetup: true, label: "${device.displayName} - Temperature ${index+1}",
-			isComponent: true])  
+			isComponent: true])
 	}
 	updateChildTemperatureSensors()
 }
@@ -191,9 +193,9 @@ private updateChildTemperatureSensors() {
 	ns = extSensorCount.toInteger()
 	if(!state.extSensorChildCount)
 		state.extSensorChildCount=0
-	
+
 	if(ns < state.extSensorChildCount) {
-		((8+ns)..(7 + state.extSensorChildCount)).eachWithIndex { ep, index -> 
+		((8+ns)..(7 + state.extSensorChildCount)).eachWithIndex { ep, index ->
 		deleteChildDevice(childNetworkId(ep))
 		}
 	}
@@ -202,21 +204,21 @@ private updateChildTemperatureSensors() {
 		addChildDevice("Fibaro FGBS-222 Child Temperature Sensor",
 			childNetworkId(ep), [componentLabel: "External temperature sensor",
 			completedSetup: true, label: "${device.displayName} - Temperature ${index+2}",
-			isComponent: true])  
+			isComponent: true])
 		}
 	}
-	state.extSensorChildCount = ns 
+	state.extSensorChildCount = ns
 }
 
 
 
 //---------------------------
-// 
+//
 //---------------------------
 private childRefresh(String dni) {
 	def ep = channelNumber(dni).toInteger()
-	logDebug "childRefresh, ep=$ep"   
-    
+	logDebug "childRefresh, ep=$ep"
+
 	switch(ep) {
 		case 1:
 		case 2:
@@ -227,7 +229,7 @@ private childRefresh(String dni) {
 		case 3:
 		case 4:
 			formatCommands([
-				toEndpoint(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x15), ep),              
+				toEndpoint(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x15), ep),
 			], 500 )
 			break;
 		case 5:
@@ -305,7 +307,7 @@ private zwaveEvent(hubitat.zwave.commands.multichannelv3.MultiChannelCmdEncap cm
  		else {
 			zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint)
 		}
-	} 
+	}
 	else {
 		log.warn "Ignored encapsulated command: ${cmd}"
 	}
@@ -323,7 +325,7 @@ private zwaveEvent(hubitat.zwave.commands.multichannelv4.MultiChannelCmdEncap cm
  		else {
 			zwaveEvent(encapsulatedCommand, cmd.sourceEndPoint)
 		}
-	} 
+	}
 	else {
 		log.warn "Ignored encapsulated command: ${cmd}"
 	}
@@ -352,10 +354,10 @@ private zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd,
 //
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, ep) {
-	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
+	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }
 	logDebug "Sensor @ endpoint ${ep} has value ${cmd.scaledSensorValue} - ep=$ep $target $cmd "
-	
-	endpoint = ep.toInteger() 
+
+	endpoint = ep.toInteger()
 	switch(endpoint) {
 		case 1..2:
 			target?.sendEvent(name: "contact", value: cmd.scaledSensorValue)
@@ -377,11 +379,11 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 //
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelReport cmd, ep, sp) {
-    
-	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
+
+	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }
 	logDebug "Sensor @ endpoint ${ep} has value ${cmd.scaledSensorValue} - ep=$ep sp=$sp $target $cmd "
-	
-	endpoint = ep.toInteger() 
+
+	endpoint = ep.toInteger()
 	switch(endpoint) {
 		case 1..2:
 			target?.sendEvent(name: "contact", value: cmd.scaledSensorValue)
@@ -403,7 +405,7 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
 //
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.basicv2.BasicSet cmd) {
-	logDebug "BasicSet: $cmd"        
+	logDebug "BasicSet: $cmd"
 }
 
 
@@ -411,12 +413,12 @@ private zwaveEvent(hubitat.zwave.commands.basicv2.BasicSet cmd) {
 //
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.basicv2.BasicSet cmd, ep) {
-	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
+	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }
 	logDebug "$target $cmd ep= $ep"
 	switch(ep.toInteger()) {
 		case 0:
 			target?.sendEvent(name: "value", value: cmd.value)
-			break        
+			break
 		case 1..2:
 			target?.sendEvent(name: "value", value: cmd.value)
 			break
@@ -433,17 +435,17 @@ private zwaveEvent(hubitat.zwave.commands.basicv2.BasicSet cmd, ep, gr) {
 	logDebug "BasicSet: $cmd ep=$ep gr=$gr"
 	if(ep==0) {
 		switch(gr) {
-			case 2: 
+			case 2:
 				target = childDevices.find { it.deviceNetworkId == childNetworkId(1)}
-				target?.sendEvent(name: "value", value: cmd.value)                                        
+				target?.sendEvent(name: "value", value: cmd.value)
 				break
 			case 3:
 				target = childDevices.find { it.deviceNetworkId == childNetworkId(2)}
-				target?.sendEvent(name: "value", value: cmd.value)                                        
+				target?.sendEvent(name: "value", value: cmd.value)
 				break
 			default:
 				log.warn "Unsupported ep value for BasicSet cmd=$cmd ep2=$ep2"
-				break            
+				break
 		}
 	}
 }
@@ -456,28 +458,28 @@ private zwaveEvent(hubitat.zwave.commands.basicv2.BasicSet cmd, ep, gr) {
 private def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport cmd) {
 	logDebug "NotificationReport V3: $cmd"
 
-	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
+	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }
 	def result = []
 	if (cmd.notificationType == 7) {
 		//  spec says type 7 is 'Home Security'
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: "open") 
+				target?.sendEvent(name: "contact", value: "open")
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: "closed")     
+				target?.sendEvent(name: "contact", value: "closed")
 				break
 			default:
 				break
 		}
-	} 
+	}
 	else {
 		log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
 		result << createEvent(descriptionText: cmd.toString())
 	}
-	result    
+	result
 }
 
 
@@ -486,29 +488,29 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport 
 //---------------------------
 private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport cmd,ep) {
 	logDebug "NotificationReport V8: ep=$ep $cmd"
-    
-	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
+
+	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }
 	def result = []
 	if (cmd.notificationType == 7) {
 		//  spec says type 7 is 'Home Security'
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: "open") 
+				target?.sendEvent(name: "contact", value: "open")
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: "closed")     
+				target?.sendEvent(name: "contact", value: "closed")
 				break
 			default:
 				break
 		}
-	} 
+	}
 	else {
 		log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
 		result << createEvent(descriptionText: cmd.toString())
 	}
-	result    
+	result
 }
 
 
@@ -517,29 +519,29 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport 
 //---------------------------
 private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport cmd,ep,sp) {
 	logDebug "NotificationReport V8: ep=$ep sp=$sp $cmd"
-    
-	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
+
+	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }
 	def result = []
 	if (cmd.notificationType == 7) {
 		//  spec says type 7 is 'Home Security'
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: "open") 
+				target?.sendEvent(name: "contact", value: "open")
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: "closed")     
+				target?.sendEvent(name: "contact", value: "closed")
 				break
 			default:
 				break
 		}
-	} 
+	}
 	else {
 		log.warn "Need to handle this cmd.notificationType: ${cmd.notificationType}"
 		result << createEvent(descriptionText: cmd.toString())
 	}
-	result    
+	result
 }
 
 //---------------------------
@@ -547,7 +549,7 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport 
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.basicv1.BasicReport cmd, ep) {
 	logDebug "basicReport: ep=$ep $cmd"
-	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
+	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }
 	switch(ep.toInteger()) {
 		case 1..2:
   			break
@@ -620,12 +622,35 @@ private zwaveEvent(hubitat.zwave.commands.versionv1.VersionCommandClassReport cm
 //---------------------------
 //
 //---------------------------
+private zwaveEvent(hubitat.zwave.commands.protectionv2.ProtectionReport cmd, ep) {
+	if (ep.toInteger() == 5){
+		if (cmd.localProtectionState != localProtection1.toInteger()) {
+			log.warn "Parameter Input/Output 1 Local Device Protection has unexpected value ${cmd.localProtectionState} (expected ${localProtection1.toInteger()})"
+		}
+		if (cmd.rfProtectionState != rfProtection1.toInteger()) {
+			log.warn "Parameter Input/Output 1 RF Device Protection has unexpected value ${cmd.localProtectionState} (expected ${localProtection1.toInteger()})"
+		}
+	}
+	if (ep.toInteger() == 6) {
+		if (cmd.localProtectionState != localProtection2.toInteger()) {
+			log.warn "Parameter Input/Output 2 Local Device Protection has unexpected value ${cmd.localProtectionState} (expected ${localProtection1.toInteger()})"
+		}
+		if (cmd.rfProtectionState != rfProtection2.toInteger()) {
+			log.warn "Parameter Input/Output 2 RF Device Protection has unexpected value ${cmd.localProtectionState} (expected ${localProtection1.toInteger()})"
+		}
+	}
+	logDebug "ProtectionReport: $cmd, ep: $ep"
+}
+
+//---------------------------
+//
+//---------------------------
 private zwaveEvent(hubitat.zwave.commands.versionv1.VersionReport cmd) {
 	logDebug "VersionReport: $cmd"
-    
+
 	BigDecimal fw = cmd.firmware0Version //applicationVersion
 	fw = fw + cmd.firmware0SubVersion/10 // applicationSubVersion / 100
-    
+
 	state.firmware = fw
 	//if(fw < 1.10)
 	//    log.warn "--- WARNING: Device handler expects devices to have firmware 1.10 or later"
@@ -654,7 +679,7 @@ private zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulatio
 	}
 }
 
-		
+
 // ----------------------------------------------------------------------------
 // ------------------------------ CONFIGURATION -------------------------------
 // ----------------------------------------------------------------------------
@@ -665,37 +690,31 @@ private zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulatio
 def configure() {
 	def configuration = new XmlSlurper().parseText(configuration_model())
 	def cmds = []
+	cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection1.toInteger(), rfProtectionState: rfProtection1.toInteger()), 5)
+	cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection2.toInteger(), rfProtectionState: rfProtection2.toInteger()), 6)
+	/*cmds << zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId)
+	cmds << zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId)
+	cmds << zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: zwaveHubNodeId)
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 2, nodeId: [zwaveHubNodeId])
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 3, nodeId: [zwaveHubNodeId])
 
-		cmds << zwave.versionV1.versionGet()
-		cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection1.toInteger(), rfProtectionState: rfProtection1.toInteger()), 5)
-		cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection2.toInteger(), rfProtectionState: rfProtection2.toInteger()), 6)
-		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId)
-		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId)
-		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: zwaveHubNodeId)
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 2, nodeId: [zwaveHubNodeId])
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 3, nodeId: [zwaveHubNodeId])
-        
-		// Set multichannel associations after they are cleared.
-		// multiChannelAssociationSet starts with a list of nodeIds then the marker "0" followed by list of endpoints (node,ep)
-		// In the case of the Fibaro, if a nodeId for group 1 is provided, it means the hub doesn't support 
-		// multichannels so it won't send automatic reports. We therefore don't provide NodeIds and start directly with the marker "0"
-		// The associations set here will also determine the kind of message signatures received by the hub,
-		// such as notificationReport or basicSet with/without endpoints and or groups...
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 1, nodeId: [0,1,1])  // 
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 2, nodeId: [0,1,1])   // Used when IN1 input is triggered (using Basic Command Class).
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 3, nodeId: [0,1,2])   // Used when IN2 input is triggered (using Basic Command Class).     
-		cmds << zwave.associationV2.associationGet( groupingIdentifier: 1)	 
-		cmds << zwave.associationV2.associationGet( groupingIdentifier: 2)	
-		cmds << zwave.associationV2.associationGet( groupingIdentifier: 3)	
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 1)
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 2)
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 3)
+	// Set multichannel associations after they are cleared.
+	// multiChannelAssociationSet starts with a list of nodeIds then the marker "0" followed by list of endpoints (node,ep)
+	// In the case of the Fibaro, if a nodeId for group 1 is provided, it means the hub doesn't support
+	// multichannels so it won't send automatic reports. We therefore don't provide NodeIds and start directly with the marker "0"
+	// The associations set here will also determine the kind of message signatures received by the hub,
+	// such as notificationReport or basicSet with/without endpoints and or groups...
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 1, nodeId: [0,1,1])  //
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 2, nodeId: [0,1,1])   // Used when IN1 input is triggered (using Basic Command Class).
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 3, nodeId: [0,1,2])   // Used when IN2 input is triggered (using Basic Command Class).
+	*/
+	logDebug "cmds: ${cmds}"
+	formatCommands(cmds, 500)
 
-        
-	
+	pauseExecution(4000)
+
 	configuration.Value.each {
-       
 		def settingValue = settings[it.@index.toString()].toInteger()
 		def byteSize = sizeOfParameter(it)
 
@@ -705,17 +724,57 @@ def configure() {
 			}
 
 			def index = it.@index.toInteger()
+			cmds = []
 			cmds << zwave.configurationV1.configurationSet(configurationValue: integerToBytes(settingValue, byteSize), parameterNumber: index, size: byteSize)
+			logDebug "cmds: ${cmds}"
+			pauseExecution(500)
+			formatCommands(cmds, 500)
+		} else {
+			logDebug "Setting ${it.@index} has null value"
+		}
+	}
+	CheckConfig()
+}
+
+def CheckConfig() {
+	def configuration = new XmlSlurper().parseText(configuration_model())
+	def cmds = []
+	cmds << zwave.versionV1.versionGet()
+	cmds << toEndpoint(zwave.protectionV2.protectionGet(), 5)
+	cmds << toEndpoint(zwave.protectionV2.protectionGet(), 6)
+	cmds << zwave.associationV2.associationGet( groupingIdentifier: 1)
+	cmds << zwave.associationV2.associationGet( groupingIdentifier: 2)
+	cmds << zwave.associationV2.associationGet( groupingIdentifier: 3)
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 1)
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 2)
+	cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 3)
+
+	logDebug "cmds: ${cmds}"
+	pauseExecution(500)
+	formatCommands(cmds, 500)
+
+  cmds = []
+	configuration.Value.each {
+		def settingValue = settings[it.@index.toString()].toInteger()
+		def byteSize = sizeOfParameter(it)
+
+		if (settingValue != null) {
+			if (settingValue == "") {
+				logDebug "Setting ${it.@index} is empty"
+			}
+
+			def index = it.@index.toInteger()
 			cmds << zwave.configurationV1.configurationGet(parameterNumber: index)
 		} else {
 			logDebug "Setting ${it.@index} has null value"
 		}
 	}
-	
-	logDebug "cmds: ${cmds}"
-	
-	formatCommands(cmds, 500)
+
+  logDebug "cmds: ${cmds}"
+  pauseExecution(500)
+  formatCommands(cmds, 500)
 }
+
 
 //---------------------------
 //
@@ -728,7 +787,7 @@ private generate_preferences(configuration_model) {
 			case ["byte", "short", "four"]:
 				input "${it.@index}", "number",
 					title: "<b>${it.@label}: </b>",
-					description: "${it.Help}",                    
+					description: "${it.Help}",
 					range: "${it.@min}..${it.@max}",
 					defaultValue: "${it.@value}",
 					displayDuringSetup: "${it.@displayDuringSetup}"
@@ -988,7 +1047,7 @@ private configuration_model() {
 //---------------------------
 def convertTemperature(cmd) {
 		if(tempUnits == "default") {
-			units = "\u00b0" + getTemperatureScale()			
+			units = "\u00b0" + getTemperatureScale()
 			finalVal = convertTemperatureIfNeeded(cmd.scaledSensorValue, cmd.scale == 1 ? "F" : "C", cmd.precision)
 		} else if(tempUnits == "F"){
 			units = "\u00b0" + "F"
@@ -999,8 +1058,8 @@ def convertTemperature(cmd) {
 				factor = 10**cmd.precision
 				finalVal = Math.round(finalVal* factor)/factor
 			}
-			
-		} else {	
+
+		} else {
 			units = "\u00b0" + "C"
 			if(cmd.scale == 1) {
 				finalVal = (cmd.scaledSensorValue - 32.0) * 5.0/9.0
@@ -1063,14 +1122,14 @@ private toEndpoint(cmd, endpoint) {
 //---------------------------
 private formatCommands(cmds, delay=null) {
 	def formattedCmds = cmds.collect { secureCommand(it.format()) }
-	
+
 	if (delay) {
 		sendHubCommand(new hubitat.device.HubMultiAction(delayBetween(formattedCmds,delay), hubitat.device.Protocol.ZWAVE))
 	} else {
 		sendHubCommand(new hubitat.device.HubMultiAction(formattedCmds, hubitat.device.Protocol.ZWAVE))
 	}
 }
-	
+
 //---------------------------
 //
 //---------------------------
