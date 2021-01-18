@@ -4,7 +4,7 @@
   "version": "1.7.3",
   "minimumHEVersion": "2.1.8",
   "dateReleased": "2021-01-18",
-  "releaseNotes": "Fixing driver issues for C7 hardware, thanks to @bon. Also new "checkConfig" command instead of doing the work in "configure",
+  "releaseNotes": "Fixing driver issues for C7 hardware, thanks to @bon. Also new checkConfig command instead of doing the work in configure",
   "drivers": [
     {
       "id": "81a7b38b-28fe-48b7-a6ac-65ff3c30486c",
