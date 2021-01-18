@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.7.3 - First attempt at fixing C7 issues
 * 1.7.2 - Merged changes to Z-wave security from jabbera
 * 1.7.1 - Adding reinstall command to erase child devices and clear state variables
 * 1.7.0 - Adding support for Hubitat Package Manager
@@ -35,7 +36,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.7.2"  }
+public static String version()      {  return "1.7.3"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
 		command( "Reinstall", [["name":"Confirmation*",	"description":"Choose Yes to confirm reinstalling the driver, child devices and state variables will be erased", "type":"ENUM", "constraints":["no","yes"]]])		
