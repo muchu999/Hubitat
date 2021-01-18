@@ -628,7 +628,7 @@ private zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
 //
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.multichannelassociationv3.MultiChannelAssociationReport cmd) {
-	logDebug "MultiChannelAssociationReport: $cmd allo"
+	logDebug "MultiChannelAssociationReport: $cmd"
 	if (cmd.groupingIdentifier == 1) {
 		if (cmd.nodeId != []) {
 			log.warn "MultiChannelAssociation for grouping 1 nodeId has unexpected value ${cmd.nodeId}, expected []"
