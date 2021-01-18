@@ -829,6 +829,7 @@ def CheckConfig() {
 	logDebug "cmds: ${cmds}"
 	formatCommandsWithPause(cmds, delay)
 	pauseExecution(2000)
+	logDebug "CheckConfig() Done"
 }
 
 
