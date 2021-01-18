@@ -636,30 +636,24 @@ private zwaveEvent(hubitat.zwave.commands.multichannelassociationv3.MultiChannel
 		if (cmd.multiChannelNodeIds[0].nodeId != 1) {
 			log.warn "MultiChannelAssociation for grouping 1 multiChannelNodeIds[0].nodeId has unexpected value ${cmd.multiChannelNodeIds[0].nodeId}, expected 1"
 		}
-		if (cmd.multiChannelNodeIds[0].endPointId != 1) {
-			log.warn "MultiChannelAssociation for grouping 1 multiChannelNodeIds[0].endPointId has unexpected value ${cmd.multiChannelNodeIds[0].endPointId}, expected 1"
+		if (cmd.multiChannelNodeIds[0].endPointId != 0) {
+			log.warn "MultiChannelAssociation for grouping 1 multiChannelNodeIds[0].endPointId has unexpected value ${cmd.multiChannelNodeIds[0].endPointId}, expected 0"
 		}
 	}
 	else if (cmd.groupingIdentifier == 2) {
 		if (cmd.nodeId != []) {
 			log.warn "MultiChannelAssociation for grouping 2 nodeId has unexpected value ${cmd.nodeId}, expected []"
 		}
-		if (cmd.multiChannelNodeIds[0].nodeId != 1) {
-			log.warn "MultiChannelAssociation for grouping 2 multiChannelNodeIds[0].nodeId has unexpected value ${cmd.multiChannelNodeIds[0].nodeId}, expected 1"
-		}
-		if (cmd.multiChannelNodeIds[0].endPointId != 1) {
-			log.warn "MultiChannelAssociation for grouping 2 multiChannelNodeIds[0].endPointId has unexpected value ${cmd.multiChannelNodeIds[0].endPointId}, expected 1"
+		if (cmd.multiChannelNodeIds != []) {
+			log.warn "MultiChannelAssociation for grouping 2 multiChannelNodeIds has unexpected value ${cmd.multiChannelNodeIds}, expected []"
 		}
 	}
 	else if (cmd.groupingIdentifier == 3) {
 		if (cmd.nodeId != []) {
 			log.warn "MultiChannelAssociation for grouping 3 nodeId has unexpected value ${cmd.nodeId}, expected []"
 		}
-		if (cmd.multiChannelNodeIds[0].nodeId != 1) {
-			log.warn "MultiChannelAssociation for grouping 4 multiChannelNodeIds[0].nodeId has unexpected value ${cmd.multiChannelNodeIds[0].nodeId}, expected 1"
-		}
-		if (cmd.multiChannelNodeIds[0].endPointId != 2) {
-			log.warn "MultiChannelAssociation for grouping 5 multiChannelNodeIds[0].endPointId has unexpected value ${cmd.multiChannelNodeIds[0].endPointId}, expected 2"
+		if (cmd.multiChannelNodeIds != []) {
+			log.warn "MultiChannelAssociation for grouping 4 multiChannelNodeIds has unexpected value ${cmd.multiChannelNodeIds}, expected []"
 		}
 	}
 }
@@ -751,9 +745,9 @@ def configure() {
 	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationRemove(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
 	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationRemove(groupingIdentifier: 2, nodeId: [zwaveHubNodeId])
 	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationRemove(groupingIdentifier: 3, nodeId: [zwaveHubNodeId])
-	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 1, nodeId: [0,1,1])  // 
-	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 2, nodeId: [0,1,1])   // Used when IN1 input is triggered (using Basic Command Class).
-	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 3, nodeId: [0,1,2])   // Used when IN2 input is triggered (using Basic Command Class).     
+	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 1, nodeId: [0,1,0])  // 
+	//cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 2, nodeId: [0,1,1])   // Used when IN1 input is triggered (using Basic Command Class).
+	//cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 3, nodeId: [0,1,2])   // Used when IN2 input is triggered (using Basic Command Class).     
 	logDebug "cmds: ${cmds}"
 	formatCommandsWithPause(cmds, delay)
 	pauseExecution(2000)
