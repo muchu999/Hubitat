@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.7.3 - First attempt at fixing C7 issues
 * 1.7.2 - Merged changes to Z-wave security from jabbera
 * 1.7.1 - Adding reinstall command to erase child devices and clear state variables
 * 1.7.0 - Adding support for Hubitat Package Manager
@@ -35,10 +36,11 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.7.2"  }
+public static String version()      {  return "1.7.3"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
 		command( "Reinstall", [["name":"Confirmation*",	"description":"Choose Yes to confirm reinstalling the driver, child devices and state variables will be erased", "type":"ENUM", "constraints":["no","yes"]]])		
+		command( "CheckConfig" )
 		capability "Configuration"
 		
 		attribute "extSensorChildCount",  "number" 
@@ -601,13 +603,60 @@ private zwaveEvent(hubitat.zwave.commands.configurationv1.ConfigurationReport cm
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.associationv2.AssociationReport cmd) {
 	logDebug "AssociationReport: $cmd"
+	if (cmd.groupingIdentifier == 1) {
+		if (cmd.nodeId != []) {
+			log.warn "Association for grouping 1 nodeId has unexpected value ${cmd.nodeId}, expected []"
+		}
+	}
+	else if (cmd.groupingIdentifier == 2) {
+		if (cmd.nodeId != []) {
+			log.warn "Association for grouping 2 nodeId has unexpected value ${cmd.nodeId}, expected []"
+		}
+	}
+	else if (cmd.groupingIdentifier == 3) {
+		if (cmd.nodeId != []) {
+			log.warn "Association for grouping 3 nodeId has unexpected value ${cmd.nodeId}, expected []"
+		}
+	}
+	else
+	{
+		log.warn "Association for grouping ${cmd.groupingIdentifier} nodeId is unextpected, should be 1,2 or 3"
+	}
+	
 }
 
 //---------------------------
 //
 //---------------------------
-private zwaveEvent(hubitat.zwave.commands.multichannelassociationv2.MultiChannelAssociationReport cmd) {
+private zwaveEvent(hubitat.zwave.commands.multichannelassociationv3.MultiChannelAssociationReport cmd) {
 	logDebug "MultiChannelAssociationReport: $cmd"
+	if (cmd.groupingIdentifier == 1) {
+		if (cmd.nodeId != []) {
+			log.warn "MultiChannelAssociation for grouping 1 nodeId has unexpected value ${cmd.nodeId}, expected []"
+		}
+		if (cmd.multiChannelNodeIds[0].nodeId != 1) {
+			log.warn "MultiChannelAssociation for grouping 1 multiChannelNodeIds[0].nodeId has unexpected value ${cmd.multiChannelNodeIds[0].nodeId}, expected 1"
+		}
+		if (cmd.multiChannelNodeIds[0].endPointId != 0) {
+			log.warn "MultiChannelAssociation for grouping 1 multiChannelNodeIds[0].endPointId has unexpected value ${cmd.multiChannelNodeIds[0].endPointId}, expected 0"
+		}
+	}
+	else if (cmd.groupingIdentifier == 2) {
+		if (cmd.nodeId != []) {
+			log.warn "MultiChannelAssociation for grouping 2 nodeId has unexpected value ${cmd.nodeId}, expected []"
+		}
+		if (cmd.multiChannelNodeIds != []) {
+			log.warn "MultiChannelAssociation for grouping 2 multiChannelNodeIds has unexpected value ${cmd.multiChannelNodeIds}, expected []"
+		}
+	}
+	else if (cmd.groupingIdentifier == 3) {
+		if (cmd.nodeId != []) {
+			log.warn "MultiChannelAssociation for grouping 3 nodeId has unexpected value ${cmd.nodeId}, expected []"
+		}
+		if (cmd.multiChannelNodeIds != []) {
+			log.warn "MultiChannelAssociation for grouping 4 multiChannelNodeIds has unexpected value ${cmd.multiChannelNodeIds}, expected []"
+		}
+	}
 }
 
 //---------------------------
@@ -615,6 +664,29 @@ private zwaveEvent(hubitat.zwave.commands.multichannelassociationv2.MultiChannel
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.versionv1.VersionCommandClassReport cmd) {
 	logDebug "VersionCommandClassReport: $cmd"
+}
+
+//---------------------------
+//
+//---------------------------
+private zwaveEvent(hubitat.zwave.commands.protectionv2.ProtectionReport cmd, ep) {
+	if (ep.toInteger() == 5){
+		if (cmd.localProtectionState != localProtection1.toInteger()) {
+			log.warn "Parameter Input/Output 1 Local Device Protection has unexpected value ${cmd.localProtectionState} (expected ${localProtection1.toInteger()})"
+		}
+		if (cmd.rfProtectionState != rfProtection1.toInteger()) {
+			log.warn "Parameter Input/Output 1 RF Device Protection has unexpected value ${cmd.localProtectionState} (expected ${localProtection1.toInteger()})"
+		}
+	}
+	if (ep.toInteger() == 6) {
+		if (cmd.localProtectionState != localProtection2.toInteger()) {
+			log.warn "Parameter Input/Output 2 Local Device Protection has unexpected value ${cmd.localProtectionState} (expected ${localProtection1.toInteger()})"
+		}
+		if (cmd.rfProtectionState != rfProtection2.toInteger()) {
+			log.warn "Parameter Input/Output 2 RF Device Protection has unexpected value ${cmd.localProtectionState} (expected ${localProtection1.toInteger()})"
+		}
+	}
+	logDebug "ProtectionReport: $cmd, ep: $ep"
 }
 
 //---------------------------
@@ -664,38 +736,32 @@ private zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulatio
 //---------------------------
 def configure() {
 	def configuration = new XmlSlurper().parseText(configuration_model())
+	def delay = 1000
 	def cmds = []
-
-		cmds << zwave.versionV1.versionGet()
-		cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection1.toInteger(), rfProtectionState: rfProtection1.toInteger()), 5)
-		cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection2.toInteger(), rfProtectionState: rfProtection2.toInteger()), 6)
-		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId)
-		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId)
-		cmds << zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: zwaveHubNodeId)
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 2, nodeId: [zwaveHubNodeId])
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier: 3, nodeId: [zwaveHubNodeId])
-        
-		// Set multichannel associations after they are cleared.
-		// multiChannelAssociationSet starts with a list of nodeIds then the marker "0" followed by list of endpoints (node,ep)
-		// In the case of the Fibaro, if a nodeId for group 1 is provided, it means the hub doesn't support 
-		// multichannels so it won't send automatic reports. We therefore don't provide NodeIds and start directly with the marker "0"
-		// The associations set here will also determine the kind of message signatures received by the hub,
-		// such as notificationReport or basicSet with/without endpoints and or groups...
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 1, nodeId: [0,1,1])  // 
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 2, nodeId: [0,1,1])   // Used when IN1 input is triggered (using Basic Command Class).
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier: 3, nodeId: [0,1,2])   // Used when IN2 input is triggered (using Basic Command Class).     
-		cmds << zwave.associationV2.associationGet( groupingIdentifier: 1)	 
-		cmds << zwave.associationV2.associationGet( groupingIdentifier: 2)	
-		cmds << zwave.associationV2.associationGet( groupingIdentifier: 3)	
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 1)
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 2)
-		cmds << zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 3)
-
-        
 	
+	cmds = []
+	cmds << zwave.associationV2.associationRemove(groupingIdentifier: 1, nodeId: zwaveHubNodeId)
+	cmds << zwave.associationV2.associationRemove(groupingIdentifier: 2, nodeId: zwaveHubNodeId)
+	cmds << zwave.associationV2.associationRemove(groupingIdentifier: 3, nodeId: zwaveHubNodeId)
+	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationRemove(groupingIdentifier: 1, nodeId: [zwaveHubNodeId])
+	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationRemove(groupingIdentifier: 2, nodeId: [zwaveHubNodeId])
+	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationRemove(groupingIdentifier: 3, nodeId: [zwaveHubNodeId])
+	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 1, nodeId: [0,1,0])  // 
+	//cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 2, nodeId: [0,1,1])   // Used when IN1 input is triggered (using Basic Command Class).
+	//cmds << zwave.multiChannelAssociationV3.multiChannelAssociationSet(groupingIdentifier: 3, nodeId: [0,1,2])   // Used when IN2 input is triggered (using Basic Command Class).     
+	logDebug "cmds: ${cmds}"
+	formatCommandsWithPause(cmds, delay)
+	pauseExecution(2000)
+	
+	cmds = []
+	cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection1.toInteger(), rfProtectionState: rfProtection1.toInteger()), 5)
+	cmds << toEndpoint(zwave.protectionV2.protectionSet(localProtectionState : localProtection2.toInteger(), rfProtectionState: rfProtection2.toInteger()), 6)
+	logDebug "cmds: ${cmds}"
+	formatCommandsWithPause(cmds, delay)
+	pauseExecution(2000)
+
+	cmds = []
 	configuration.Value.each {
-       
 		def settingValue = settings[it.@index.toString()].toInteger()
 		def byteSize = sizeOfParameter(it)
 
@@ -706,16 +772,61 @@ def configure() {
 
 			def index = it.@index.toInteger()
 			cmds << zwave.configurationV1.configurationSet(configurationValue: integerToBytes(settingValue, byteSize), parameterNumber: index, size: byteSize)
+		} else {
+			logDebug "Setting ${it.@index} has null value"
+		}
+	}
+	logDebug "cmds: ${cmds}"
+	formatCommandsWithPause(cmds, delay)
+	pauseExecution(2000)
+	logDebug "Configure() Done"
+}
+
+//---------------------------
+//
+//---------------------------
+def CheckConfig() {
+	def configuration = new XmlSlurper().parseText(configuration_model())
+	def delay = 1000
+	def cmds = []
+	
+	cmds << zwave.versionV1.versionGet()
+	cmds << toEndpoint(zwave.protectionV2.protectionGet(), 5)
+	cmds << toEndpoint(zwave.protectionV2.protectionGet(), 6)
+	cmds << zwave.associationV2.associationGet( groupingIdentifier: 1)
+	cmds << zwave.associationV2.associationGet( groupingIdentifier: 2)
+	cmds << zwave.associationV2.associationGet( groupingIdentifier: 3)
+	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationGet(groupingIdentifier: 1)
+	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationGet(groupingIdentifier: 2)
+	cmds << zwave.multiChannelAssociationV3.multiChannelAssociationGet(groupingIdentifier: 3)
+
+	logDebug "cmds: ${cmds}"
+	formatCommandsWithPause(cmds, delay)
+	pauseExecution(2000)
+
+  	cmds = []
+	configuration.Value.each {
+		def settingValue = settings[it.@index.toString()].toInteger()
+		def byteSize = sizeOfParameter(it)
+
+		if (settingValue != null) {
+			if (settingValue == "") {
+				logDebug "Setting ${it.@index} is empty"
+			}
+
+			def index = it.@index.toInteger()
 			cmds << zwave.configurationV1.configurationGet(parameterNumber: index)
 		} else {
 			logDebug "Setting ${it.@index} has null value"
 		}
 	}
-	
+
 	logDebug "cmds: ${cmds}"
-	
-	formatCommands(cmds, 500)
+	formatCommandsWithPause(cmds, delay)
+	pauseExecution(2000)
+	logDebug "CheckConfig() Done"
 }
+
 
 //---------------------------
 //
@@ -1071,6 +1182,19 @@ private formatCommands(cmds, delay=null) {
 	}
 }
 	
+//---------------------------
+//
+//---------------------------
+private formatCommandsWithPause(cmds, delay=null) {
+	def formattedCmds = cmds.collect { secureCommand(it.format()) }
+	formattedCmds.each {
+		sendHubCommand(new hubitat.device.HubAction(it, hubitat.device.Protocol.ZWAVE))
+		if(delay) {
+			pauseExecution(delay)
+		}
+	}
+}
+
 //---------------------------
 //
 //---------------------------
