@@ -741,7 +741,7 @@ private zwaveEvent(hubitat.zwave.commands.securityv1.SecurityMessageEncapsulatio
 //---------------------------
 def configure() {
 	def configuration = new XmlSlurper().parseText(configuration_model())
-	def delay = 500
+	def delay = 1000
 	def cmds = []
 	
 	cmds = []
@@ -792,7 +792,7 @@ def configure() {
 //---------------------------
 def CheckConfig() {
 	def configuration = new XmlSlurper().parseText(configuration_model())
-	def delay = 500
+	def delay = 1000
 	def cmds = []
 	
 	cmds << zwave.versionV1.versionGet()
