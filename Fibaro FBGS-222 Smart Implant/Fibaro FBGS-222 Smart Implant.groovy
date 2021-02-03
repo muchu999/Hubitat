@@ -52,13 +52,15 @@ metadata {
 	preferences {
 		generate_preferences(configuration_model())
 		input name:"sensorOffset0",  type:"decimal", title:"<b>Internal Sensor Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
-		input "extSensorCount", "enum", title: "<b>Number of External Sensors?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: false
-		input name:"sensorOffset1", type:"decimal", title:"<b>External Sensor 1 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
+		input "extSensorType", "enum", title: "<b>External Sensors Type?</b>", options: ["None","DHT22","DS18B20"], defaultValue: "DS18B20", required: true
+		input "extSensorCount", "enum", title: "<b>Number of External DS18B20?</b>", options: ["0","1","2","3","4","5","6"], defaultValue: "0", required: true
+		input name:"sensorOffset1", type:"decimal", title:"<b>External Sensor 1 Temp Offset (DHT22 or DS18B20)</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
 		input name:"sensorOffset2", type:"decimal", title:"<b>External Sensor 2 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
 		input name:"sensorOffset3", type:"decimal", title:"<b>External Sensor 3 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
 		input name:"sensorOffset4", type:"decimal", title:"<b>External Sensor 4 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
 		input name:"sensorOffset5", type:"decimal", title:"<b>External Sensor 5 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
 		input name:"sensorOffset6", type:"decimal", title:"<b>External Sensor 6 Temp Offset</b>", description:"degrees", defaultValue:0.0, range: "-7..7"
+		input name:"sensorOffsetHumidity", type:"decimal", title:"<b>DHT22 Humidity Offset</b>", description:"%", defaultValue:0.0, range: "-7..7"
 		input "localProtection1", "enum", title: "<b>Input/Output 1 - Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
 		input "rfProtection1", "enum", title: "<b>Input/Output 1 - RF Device Protection?</b>", description: "0:Unprotected, 1:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
 		input "localProtection2", "enum", title: "<b>Input/Output 2 - Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
@@ -87,6 +89,7 @@ def installed() {
 	logDebug "installed"
 	state.driverVersion = "${version()}"
 	state.extSensorChildCount = 0
+	state.extSensorChildType = "None"
 	initialize()
 }
 
@@ -102,7 +105,9 @@ private initialize() {
 		addChildDevices()
 		debugOutput = 1
 	}
-	updateChildTemperatureSensors()
+	else {
+		updateExternalChildSensors()
+	}
 }
 
 
@@ -121,9 +126,10 @@ private addChildDevices() {
 		addChildSwitches()
 		addChildAnalogInputs()
 		addChildDigitalInputs()
-		addChildTemperatureSensors()
+		addChildTemperatureSensor()
+		updateExternalChildSensors()
 	} catch (e) {
-		logDebug("Child device creation failed")
+		log.warn "Child device creation failed"
 		sendEvent(
 			descriptionText: "Child device creation failed",
 			eventType: "ALERT",
@@ -176,38 +182,68 @@ private addChildSwitches() {
 //---------------------------
 // Temperature sensors (EP 7)
 //---------------------------
-private addChildTemperatureSensors() {
+private addChildTemperatureSensor() {
 	(7).eachWithIndex { ep, index ->
 	addChildDevice("Fibaro FGBS-222 Child Temperature Sensor",
 			childNetworkId(ep), [componentLabel: "Internal temperature sensor",
-			completedSetup: true, label: "${device.displayName} - Temperature ${index+1}",
+			completedSetup: true, label: "${device.displayName} - Internal Temperature",
 			isComponent: true])  
 	}
-	updateChildTemperatureSensors()
 }
 
 //---------------------------
-// Temperature sensors (EP 8-13)
+// External sensors (EP 8-13)
 //---------------------------
-private updateChildTemperatureSensors() {
+private updateExternalChildSensors() {
+	type = extSensorType
 	ns = extSensorCount.toInteger()
+	
 	if(!state.extSensorChildCount)
 		state.extSensorChildCount=0
+	if(!state.extSensorChildType)
+		state.extSensorChildType="None"
 	
-	if(ns < state.extSensorChildCount) {
-		((8+ns)..(7 + state.extSensorChildCount)).eachWithIndex { ep, index -> 
-		deleteChildDevice(childNetworkId(ep))
+	if(state.extSensorChildType != type)
+	{
+		(8..13).each { ep -> 
+			deleteChildDevice(childNetworkId(ep))
+		}
+		
+		state.extSensorChildCount = 0
+		state.extSensorChildType = "None"
+	}
+	if(type == "DS18B20"){
+		if(ns < state.extSensorChildCount) {
+			((8+ns)..(7 + state.extSensorChildCount)).eachWithIndex { ep, index -> 
+			deleteChildDevice(childNetworkId(ep))
+			}
+		}
+		else if (ns > state.extSensorChildCount) {
+			((8 + (state.extSensorChildCount).toInteger())..(7+ns)).eachWithIndex { ep, index ->
+			addChildDevice("Fibaro FGBS-222 Child Temperature Sensor",
+				childNetworkId(ep), [componentLabel: "External temperature sensor",
+				completedSetup: true, label: "${device.displayName} - DS18B20 Temperature ${index+1}",
+				isComponent: true])  
+			}
 		}
 	}
-	else if (ns > state.extSensorChildCount) {
-		((8 + (state.extSensorChildCount).toInteger())..(7+ns)).eachWithIndex { ep, index ->
-		addChildDevice("Fibaro FGBS-222 Child Temperature Sensor",
-			childNetworkId(ep), [componentLabel: "External temperature sensor",
-			completedSetup: true, label: "${device.displayName} - Temperature ${index+2}",
-			isComponent: true])  
+	else if(type == "DHT22") {
+		if(state.extSensorChildType != type) {
+			addChildDevice("Fibaro FGBS-222 Child Temperature Sensor",
+				childNetworkId(8), [componentLabel: "External temperature sensor",
+				completedSetup: true, label: "${device.displayName} - DHT22 Temperature",
+				isComponent: true])  
+			addChildDevice("Fibaro FGBS-222 Child Humidity Sensor",
+				childNetworkId(9), [componentLabel: "External humidity sensor",
+				completedSetup: true, label: "${device.displayName} - DHT22 Humidity",
+				isComponent: true])  
 		}
 	}
-	state.extSensorChildCount = ns 
+	else {
+	}
+
+	state.extSensorChildCount = ns
+	state.extSensorChildType = type
 }
 
 
@@ -354,6 +390,7 @@ private zwaveEvent(hubitat.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd,
 //
 //---------------------------
 private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd, ep) {
+	
 	def target = childDevices.find { it.deviceNetworkId == childNetworkId(ep) }  
 	logDebug "Sensor @ endpoint ${ep} has value ${cmd.scaledSensorValue} - ep=$ep $target $cmd "
 	
@@ -365,7 +402,22 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 		case 3..4:
 			target?.sendEvent(name: "voltage", value: cmd.scaledSensorValue)
 			break
-		case 7..13:
+		case [9]:
+			if(extSensorType=="DHT22") {
+				finalVal = cmd.scaledSensorValue
+				finalVal = finalVal.toFloat() + sensorOffsetHumidity
+				if(finalVal < 0.0){
+					finalVal = 0.0
+				}
+				if(finalVal > 100.0){
+					finalVal = 100.0
+				}
+				finalVal = Math.round(finalVal* 10.0)/10.0
+				units = "%"
+				target?.sendEvent(name: "humidity", value: finalVal, unit: units, descriptionText:"${target} humidity is ${finalVal}${units}" )
+				break;
+			}
+		case [7,8,9,10,11,12,13]:
 			(finalVal,units) = convertTemperature(cmd)
 			finalVal = finalVal.toFloat() + settings["${"sensorOffset" + (endpoint-7).toString()}"]
 			finalVal = Math.round(finalVal* 10.0)/10.0
@@ -391,7 +443,22 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
 		case 3..4:
 			target?.sendEvent(name: "voltage", value: cmd.scaledSensorValue)
 			break
-		case 7..13:
+		case [9]:
+			if(extSensorType=="DHT22") {
+				finalVal = cmd.scaledSensorValue
+				finalVal = finalVal.toFloat() + sensorOffsetHumidity
+				if(finalVal < 0.0){
+					finalVal = 0.0
+				}
+				if(finalVal > 100.0){
+					finalVal = 100.0
+				}
+				finalVal = Math.round(finalVal* 10.0)/10.0
+				units = "%"
+				target?.sendEvent(name: "relative humidity", value: finalVal, unit: units, descriptionText:"${target} relative humidity is ${finalVal}${units}" )
+				break;
+			}
+		case [7,8,9,10,11,12,13]:
 			(finalVal,units) = convertTemperature(cmd)
 			finalVal = finalVal.toFloat() + settings["${"sensorOffset" + (endpoint-7).toString()}"]
 			finalVal = Math.round(finalVal* 10.0)/10.0
