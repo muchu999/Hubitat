@@ -11,11 +11,11 @@ metadata {
 		attribute "rawVoltage", "decimal"
 
 		preferences {
-			input(name: "voltageEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Voltage equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'voltage' from 'rawVoltage'.<br><br>Valid functions/operators: sqrt(x), abs(x), log(x), exp(x), sin(x), cos(x), tan(x), asin(x), acos(x), atan(x), floor(x), ceil(x), round(x), sqrt(x), max(x,y), min(x,y), gt(x,y), lt(x,y), gteq(x,y), lteq(x,y), eq(x,y), neq(x,y), *, /, +, -, ^,(,) <br><br>Example: log(rawVoltage*5.1+3.3^1.2)<br><br></font>", defaultValue: "rawVoltage");			
-			input(name: "levelEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Level equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'level' from 'rawVoltage'<br><br>Example: max(min(round(rawVoltage*11+5.1),100),0)<br><br></font>", defaultValue: "");
-			input(name: "temperatureEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Temperature equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'temperature' from 'rawVoltage'<br><br></font>", defaultValue: "");			
-			input(name: "contactSensorEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Contact Sensor equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'contact' from 'rawVoltage'. Value greather than 0 is open<br><br></font>", defaultValue: "");			
-			input(name: "switchEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Switch equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'switch' from 'rawVoltage'. Value greather than 0 is on<br><br></font>", defaultValue: "");			
+			input(name: "voltageEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Voltage equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'voltage' from 'rawVoltage'.<br><br>Valid functions/operators: sqrt(x), abs(x), log(x), exp(x), sin(x), cos(x), tan(x), asin(x), acos(x), atan(x), floor(x), ceil(x), round(x), sqrt(x), max(x,y), min(x,y), gt(x,y), lt(x,y), gteq(x,y), lteq(x,y), eq(x,y), neq(x,y), *, /, +, -, ^,(,) <br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: log(rawVoltage*5.1+3.3^1.2)<br><br></font>", defaultValue: "rawVoltage");			
+			input(name: "levelEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Level equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'level' from 'rawVoltage'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: max(min(round(rawVoltage*11+5.1),100),0)<br><br></font>", defaultValue: "");
+			input(name: "temperatureEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Temperature equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'temperature' from 'rawVoltage'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: round((rawVoltage*(-68.8)/3.19+198.81-32)*5/9*100)/100<br><br></font>", defaultValue: "");			
+			input(name: "contactSensorEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Contact Sensor equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'contact' from 'rawVoltage'. Value greather than 0 is open<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: gt(rawVoltage,5.0)<br><br></font>", defaultValue: "");			
+			input(name: "switchEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Switch equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'switch' from 'rawVoltage'. Value greather than 0 is on<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: lt(rawVoltage,2.5)<br><br></font>", defaultValue: "");			
 		}
 	}
 }
@@ -40,7 +40,7 @@ void updated() {
 	}
 	if(temperatureEquation) {
 		value = eval(temperatureEquation)
-		units="F"
+		units=""
 		sendEvent(name: "temperature", value: value, unit: units, descriptionText:"temperature is ${value}${units}" )
 	}
 	if(contactSensorEquation) {
@@ -58,7 +58,7 @@ void updated() {
 void parse(List<Map> description) {
     description.each {
         if (it.name in ["voltage"]) {
-			state.rawVoltage = it.value // Make a copy that we use below, attribute updated using sendevent are not always updated on time
+			state.rawVoltage = it.value 
 			if(voltageEquation) {
 				value = eval(voltageEquation)
 				units="v"
