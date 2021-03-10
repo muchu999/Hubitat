@@ -61,12 +61,12 @@ void updated() {
 	if(illuminanceEquation) {
 		value = eval(illuminanceEquation)
 		units="lux"
-		sendEvent(name: "illuminance", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
+		sendEvent(name: "illuminance", value: value, unit: units, descriptionText:"illuminance is ${value}${units}" )
 	}
 	if(humidityEquation) {
 		value = eval(humidityEquation)
 		units="%"
-		sendEvent(name: "humidity", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
+		sendEvent(name: "humidity", value: value, unit: units, descriptionText:"humidity is ${value}${units}" )
 	}
 }
 
@@ -102,12 +102,12 @@ void parse(List<Map> description) {
 			if(illuminanceEquation) {
 				value = eval(illuminanceEquation)
 				units="lux"
-				sendEvent(name: "illuminance", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
+				sendEvent(name: "illuminance", value: value, unit: units, descriptionText:"illuminance is ${value}${units}" )
 			}
 			if(humidityEquation) {
 				value = eval(humidityEquation)
 				units="%"
-				sendEvent(name: "humidity", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
+				sendEvent(name: "humidity", value: value, unit: units, descriptionText:"humidity is ${value}${units}" )
 			}
 		}
     } 
