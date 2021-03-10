@@ -203,7 +203,7 @@ private updateExternalChildSensors() {
 	if(!state.extSensorChildCount)
 		state.extSensorChildCount=0
 	if(!state.extSensorChildType)
-		state.extSensorChildType="None"
+		state.extSensorChildType="DS18B20"
 	
 	if(state.extSensorChildType != type)
 	{
