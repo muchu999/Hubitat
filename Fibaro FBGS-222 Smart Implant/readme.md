@@ -1,6 +1,6 @@
 From the Hubitat community: https://community.hubitat.com/t/release-fibaro-smart-implant-fgbs-222/42983
 
--Install the 5 files as 5 drivers. Use the main driver file "...smart implant" for the device "type" of the device. 
+-Install the 6 files as 6 drivers. Use the main driver file "...smart implant" for the device "type" of the device. 
  This main driver will take care of using the other drivers as required (it will create child devices automatically).
  
 -Periodic reports only work when multiChannelAssociation is set in a very specific way. Nothing you should worry about 
@@ -14,8 +14,9 @@ From the Hubitat community: https://community.hubitat.com/t/release-fibaro-smart
 -There is little support for the zwave scenes and buttons modes. Not many people are using those features afaik.
 
 -Don't forget to "save preferences" and then press the "configure" button when changing parameters. When configure is pressed, 
- configuration parameters are sent over the air to the implant, this can take some times (1 minute), check the log to see 
- what is happening if you want.
+ configuration parameters are sent over the air to the implant, this can take some times (40 sec), check the log to see 
+ what is happening if you want. "checkConfig" will verify that the implant is configured properly, check the log for eventual errors.
+ It takes about 40 sec.
  
 -The data from the implant might not be updated right away when the driver is first installed. In the case of the digital
  inputs (with notifications), a notification will only be sent by the implant once the state of the input changes. You therefore 
