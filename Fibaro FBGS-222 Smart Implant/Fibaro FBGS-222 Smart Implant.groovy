@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.7.5 - Added support for DHT-22 temperature and humidity external sensor
 * 1.7.4 - Adding flexibility/capabilities to child analog input
 * 1.7.3 - First attempt at fixing C7 issues
 * 1.7.2 - Merged changes to Z-wave security from jabbera
@@ -37,7 +38,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.7.4"  }
+public static String version()      {  return "1.7.5"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
 		command( "Reinstall", [["name":"Confirmation*",	"description":"Choose Yes to confirm reinstalling the driver, child devices and state variables will be erased, rules, tiles, etc. linked to the child devices will be broken", "type":"ENUM", "constraints":["no","yes"]]])		
