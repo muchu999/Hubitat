@@ -27,7 +27,7 @@
 //
 //---------------------------
 metadata {
-	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
+	definition (name: "Venmar Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "") {
 		capability "Configuration"
 		capability "Actuator"
 		capability "Refresh"        
