@@ -7,6 +7,9 @@ metadata {
 		capability "Switch"
 		capability "Switch Level"
 		capability "Contact Sensor"
+		capability "Illuminance Measurement"
+		capability "Relative Humidity Measurement"
+
 		
 		attribute "rawVoltage", "decimal"
 
@@ -16,6 +19,8 @@ metadata {
 			input(name: "temperatureEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Temperature equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'temperature' from 'rawVoltage'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: round((rawVoltage*(-68.8)/3.19+198.81-32)*5/9*100)/100<br><br></font>", defaultValue: "");			
 			input(name: "contactSensorEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Contact Sensor equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'contact' from 'rawVoltage'. Value greather than 0 is open<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: gt(rawVoltage,5.0)<br><br></font>", defaultValue: "");			
 			input(name: "switchEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Switch equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'switch' from 'rawVoltage'. Value greather than 0 is on<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: lt(rawVoltage,2.5)<br><br></font>", defaultValue: "");			
+			input(name: "illuminanceEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Contact Sensor equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'illuminance' from 'rawVoltage'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: 10^7*(1/(((12-rawVoltage)/(5000*rawVoltage))-1/100000))^(-1.4)<br><br></font>", defaultValue: "");			
+			input(name: "humidityEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Switch equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'humidity' from 'rawVoltage'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: max(min(round(rawVoltage*10),100),0)<br><br></font>", defaultValue: "");			
 		}
 	}
 }
@@ -53,6 +58,16 @@ void updated() {
 		units=""
 		sendEvent(name: "switch", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
 	}
+	if(illuminanceEquation) {
+		value = eval(illuminanceEquation)
+		units="lux"
+		sendEvent(name: "illuminance", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
+	}
+	if(humidityEquation) {
+		value = eval(humidityEquation)
+		units="%"
+		sendEvent(name: "humidity", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
+	}
 }
 
 void parse(List<Map> description) {
@@ -83,6 +98,16 @@ void parse(List<Map> description) {
 				value = eval(switchEquation) > 0 ? "on":"off"
 				units=""
 				sendEvent(name: "switch", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
+			}
+			if(illuminanceEquation) {
+				value = eval(illuminanceEquation)
+				units="lux"
+				sendEvent(name: "illuminance", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
+			}
+			if(humidityEquation) {
+				value = eval(humidityEquation)
+				units="%"
+				sendEvent(name: "humidity", value: value, unit: units, descriptionText:"switch is ${value}${units}" )
 			}
 		}
     } 
