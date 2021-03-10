@@ -401,7 +401,8 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 			target?.sendEvent(name: "contact", value: cmd.scaledSensorValue)
 			break
 		case 3..4:
-			target?.sendEvent(name: "voltage", value: cmd.scaledSensorValue)
+			unit = "v"
+			target?.parse([[name:"voltage", value:cmd.scaledSensorValue, descriptionText:"${target} voltage is ${cmd.scaledSensorValue}${unit}", unit: unit]])
 			break
 		case [9]:
 			if(extSensorType=="DHT22") {
@@ -416,13 +417,9 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 				finalVal = Math.round(finalVal* 10.0)/10.0
 				units = "%"
 				target?.sendEvent(name: "humidity", value: finalVal, unit: units, descriptionText:"${target} humidity is ${finalVal}${units}" )
-				break;
+				break
 			}
 		case [7,8,9,10,11,12,13]:
-			unit = "v"
-			target?.parse([[name:"voltage", value:cmd.scaledSensorValue, descriptionText:"${target} voltage is ${cmd.scaledSensorValue}${unit}", unit: unit]])
-		break
-		case 7..13:
 			(finalVal,units) = convertTemperature(cmd)
 			finalVal = finalVal.toFloat() + settings["${"sensorOffset" + (endpoint-7).toString()}"]
 			finalVal = Math.round(finalVal* 10.0)/10.0
@@ -461,8 +458,8 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
 				}
 				finalVal = Math.round(finalVal* 10.0)/10.0
 				units = "%"
-				target?.sendEvent(name: "relative humidity", value: finalVal, unit: units, descriptionText:"${target} relative humidity is ${finalVal}${units}" )
-				break;
+				target?.sendEvent(name: "humidity", value: finalVal, unit: units, descriptionText:"${target} humidity is ${finalVal}${units}" )
+				break
 			}
 		case [7,8,9,10,11,12,13]:
 			(finalVal,units) = convertTemperature(cmd)
