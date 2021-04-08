@@ -148,7 +148,7 @@ private setMode(value)
     
     state.inTransition = 1
 	unschedule(endOfTransition)
-	runIn(13, endOfTransition)
+	runIn(16, endOfTransition)
 	return delayBetween(cmds, 1000)
     
 }
