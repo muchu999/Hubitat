@@ -84,7 +84,8 @@ private dbCleanUp() {
 
 def endOfTransition()
 {
-    state.inTransition = 0
+	logDebug "endOfTransition"
+	state.inTransition = false
 }
 
 
@@ -146,10 +147,10 @@ private setMode(value)
        
 	}
     
-    state.inTransition = 1
+    state.inTransition = true
 	unschedule(endOfTransition)
-	runIn(16, endOfTransition)
-	return delayBetween(cmds, 1000)
+	runIn(16, endOfTransition, [overwrite: false])
+	return delayBetween(cmds, 200)
     
 }
 
@@ -193,7 +194,7 @@ private initialize() {
 		addChildDevices()
 	}
     state.rerefreshCount = 0
-	state.inTransition = 0
+	state.inTransition = false
 	unschedule(endOfTransition)
     
 	formatCommands([
@@ -335,6 +336,7 @@ def refresh() {
 	}
 	else
 	{
+		logDebug "Postponing refresh"
 		runIn(10, refresh)
 	}
 }
@@ -343,6 +345,7 @@ def refresh() {
 //
 //---------------------------
 def updateTrapTemp() {
+    logDebug "Update TrapTemp"
 	formatCommands([toEndpoint(zwave.sensorMultilevelV5.sensorMultilevelGet(sensorType: 0x15), 4)], 500)
 }
 
@@ -351,6 +354,12 @@ def updateTrapTemp() {
 //
 //---------------------------
 private setSwitch(value, channel) {
+	def cmds = []
+	cmds << toEndpoint(zwave.switchBinaryV1.switchBinarySet(switchValue: value), channel)
+	cmds <<	toEndpoint(zwave.switchBinaryV1.switchBinaryGet(), channel)
+	formatCommands(cmds,500)
+	
+	/*
 	def cmds = [
 		toEndpoint(zwave.switchBinaryV1.switchBinarySet(switchValue: value), channel).format(),
 		toEndpoint(zwave.switchBinaryV1.switchBinaryGet(), channel).format(),
@@ -363,7 +372,7 @@ private setSwitch(value, channel) {
 		]
 	} else {
 		cmds
-	}
+	}*/
 }
 
 
@@ -666,7 +675,6 @@ private configuration_model() {
 		<Item label="Analog input without internal pull-up (Sensor Multilevel)" value="4" />
 		<Item label="Analog input with internal pullup (Sensor Multilevel)" value="5" />
 	</Value>
-
 	<Value type="list" genre="config" instance="1" index="21" label="Input 2 - operating mode" value="2" size="1">
 		<Help>This parameter allows to choose mode of 2nd input (IN2). Change it depending on connected device.</Help>
 		<Item label="Normally closed alarm input (Notification)" value="0" />
@@ -676,19 +684,16 @@ private configuration_model() {
 		<Item label="Analog input without internal pull-up (Sensor Multilevel)" value="4" />
 		<Item label="Analog input with internal pullup (Sensor Multilevel)" value="5" />
 	</Value>
-
 	<Value type="list" genre="config" instance="1" index="24" label="Inputs orientation" value="0" size="1">
 		<Help>This parameter allows reversing operation of IN1 and IN2 inputs without changing the wiring. Use in case of incorrect wiring.</Help>
 		<Item label="default (IN1 - 1st input, IN2 - 2nd input)" value="0" />
 		<Item label="reversed (IN1 - 2nd input, IN2 - 1st input)" value="1" />
 	</Value>
-
 	<Value type="list" genre="config" instance="1" index="25" label="Outputs orientation" value="0" size="1">
 		<Help>This parameter allows reversing operation of OUT1 and OUT2 inputs without changing the wiring. Use in case of incorrect wiring.</Help>
 		<Item label="default (OUT1 - 1st output, OUT2 - 2nd output)" value="0" />
 		<Item label=" reversed (OUT1 - 2nd output, OUT2 - 1st output)" value="1" />
 	</Value>
-
 	<Value type="list" genre="config" instance="1" index="40" label="Input 1 - sent scenes" value="0" size="1">
 		<Help>This parameter defines which actions result in sending scene ID and attribute assigned to them. Parameter is relevant only if parameter 20 is set to 2 or 3</Help>
 		<Item label="No scenes sent" value="0" />
@@ -697,7 +702,6 @@ private configuration_model() {
 		<Item label="Key pressed 3 times" value="4" />
 		<Item label="Key hold down and key released" value="8" />
 	</Value>
-
 	<Value type="list" genre="config" instance="1" index="41" label="Input 2 - sent scenes" value="0" size="1">
 		<Help>This parameter defines which actions result in sending scene ID and attribute assigned to them. Parameter is relevant only if parameter 21 is set to 2 or 3.</Help>
 		<Item label="No scenes sent" value="0" />
@@ -706,7 +710,6 @@ private configuration_model() {
 		<Item label="Key pressed 3 times" value="4" />
 		<Item label="Key hold down and key released" value="8" />
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="47" label="Input 1 - value sent to 2nd association group when activated" min="0" max="255" value="255">
 		<Help>
 			This parameter defines value sent to devices in 2nd association group when IN1 input is triggered (using Basic Command Class).
@@ -714,7 +717,6 @@ private configuration_model() {
 			Default setting: 255.
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="49" label="Input 1 - value sent to 2nd association group when deactivated" min="0" max="255" value="255">
 		<Help>
 			This parameter defines value sent to devices in 2nd association group when IN1 input is deactivated (using Basic Command Class).
@@ -722,7 +724,6 @@ private configuration_model() {
 			Default setting: 255.
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="52" label="Input 2 - value sent to 3rd association group when activated" min="0" max="255" value="255">
 		<Help>
 			This parameter defines value sent to devices in 3rd association group when IN2 input is triggered (using Basic Command Class).
@@ -730,7 +731,6 @@ private configuration_model() {
 			Default setting: 255.
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="54" label="Input 2 - value sent to 3rd association group when deactivated" min="0" max="255" value="255">
 		<Help>
 			This parameter defines value sent to devices in 3rd association group when IN2 input is deactivated (using Basic Command Class).
@@ -738,7 +738,6 @@ private configuration_model() {
 			Default setting: 255.
 		</Help>
 	</Value>
-
 	<Value type="byte" genre="config" instance="1" index="150" label="Input 1 - sensitivity" min="1" max="100" value="10">
 		<Help>
 			This parameter defines the inertia time of IN1 input in alarm modes.
@@ -747,7 +746,6 @@ private configuration_model() {
 			Default setting: 10 (100ms).
 		</Help>
 	</Value>
-
 	<Value type="byte" genre="config" instance="1" index="151" label="Input 2 - sensitivity" min="1" max="100" value="10">
 		<Help>
 			This parameter defines the inertia time of IN2 input in alarm modes.
@@ -756,7 +754,6 @@ private configuration_model() {
 			Default setting: 10 (100ms).
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="152" label="Input 1 - delay of alarm cancellation" min="0" max="3600" value="0">
 		<Help>
 			This parameter defines additional delay of cancelling the alarm on IN1 input. Parameter is relevant only if parameter 20 is set to 0 or 1 (alarm mode).
@@ -766,7 +763,6 @@ private configuration_model() {
 			Default setting: 0 (no delay).
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="153" label="Input 2 - delay of alarm cancellation" min="0" max="3600" value="0">
 		<Help>
 			This parameter defines additional delay of cancelling the alarm on IN2 input. Parameter is relevant only if parameter 21 is set to 0 or 1 (alarm mode).
@@ -776,19 +772,16 @@ private configuration_model() {
 			Default setting: 0 (no delay).
 		</Help>
 	</Value>
-
 	<Value type="list" genre="config" instance="1" index="154" label="Output 1 - logic of operation" value="0" size="1">
 		<Help>This parameter defines logic of OUT1 output operation.</Help>
 		<Item label="contacts normally open" value="0" />
 		<Item label="contacts normally closed" value="1" />
 	</Value>
-
 	<Value type="list" genre="config" instance="1" index="155" label="Output 2 - logic of operation" value="0" size="1">
 		<Help>This parameter defines logic of OUT2 output operation.</Help>
 		<Item label="contacts normally open" value="0" />
 		<Item label="contacts normally closed" value="1" />
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="156" label="Output 1 - auto off" min="0" max="27000" value="0">
 		<Help>
 			This parameter defines time after which OUT1 will be automatically deactivated.
@@ -798,7 +791,6 @@ private configuration_model() {
 			Default setting: 0 (auto off disabled).
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="157" label="Output 2 - auto off" min="0" max="27000" value="0">
 		<Help>
 			This parameter defines time after which OUT2 will be automatically deactivated.
@@ -808,7 +800,6 @@ private configuration_model() {
 			Default setting: 0 (auto off disabled).
 		</Help>
 	</Value>
-
 	<Value type="byte" genre="config" instance="1" index="63" label="Analog inputs - minimal change to report" min="0" max="100" value="5">
 		<Help>
 			This parameter defines minimal change (from the last reported) of
@@ -820,7 +811,6 @@ private configuration_model() {
 			Default setting: 5 (0.5V).
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="64" label="Analog inputs - periodical reports" min="0" max="32400" value="0">
 		<Help>
 			This parameter defines reporting period of analog inputs value.
@@ -832,7 +822,6 @@ private configuration_model() {
 			Default setting: 0 (periodical reports disabled).
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="65" label="Internal temperature sensor - minimal change to report" min="0" max="255" value="5">
 		<Help>
 			This parameter defines minimal change (from the last reported)
@@ -844,7 +833,6 @@ private configuration_model() {
 			Default setting: 5 (0.5C).
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="66" label="Internal temperature sensor - periodical reports" min="0" max="32400" value="0">
 		<Help>
 			This parameter defines reporting period of internal temperature
@@ -856,7 +844,6 @@ private configuration_model() {
 			Default setting: 0 (periodical reports disabled).
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="67" label="External sensors - minimal change to report" min="0" max="255" value="5">
 		<Help>
 			This parameter defines minimal change (from the last reported) of
@@ -869,7 +856,6 @@ private configuration_model() {
 			Default setting: 5 (0.5 units)
 		</Help>
 	</Value>
-
 	<Value type="short" genre="config" instance="1" index="68" label="External sensors - periodical reports" min="0" max="32400" value="0">
 		<Help>
 			This parameter defines reporting period of analog inputs value.
