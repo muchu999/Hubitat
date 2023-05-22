@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.7.6 - Modified temperature formatting to avoid use scientific notation in reporting
 * 1.7.5 - Added support for DHT-22 temperature and humidity external sensor
 * 1.7.4 - Adding flexibility/capabilities to child analog input
 * 1.7.3 - First attempt at fixing C7 issues
@@ -38,7 +39,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.7.5"  }
+public static String version()      {  return "1.7.6"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
 		command( "Reinstall", [["name":"Confirmation*",	"description":"Choose Yes to confirm reinstalling the driver, child devices and state variables will be erased, rules, tiles, etc. linked to the child devices will be broken", "type":"ENUM", "constraints":["no","yes"]]])		
@@ -423,7 +424,7 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv5.SensorMultilevelRep
 		case [7,8,9,10,11,12,13]:
 			(finalVal,units) = convertTemperature(cmd)
 			finalVal = finalVal.toFloat() + settings["${"sensorOffset" + (endpoint-7).toString()}"]
-			finalVal = Math.round(finalVal* 10.0)/10.0
+			finalVal = (Math.round(finalVal* 10.0)/10.0).toFloat()
 			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${target} temperature is ${finalVal}${units}" )
 			break
 	}
@@ -465,7 +466,7 @@ private zwaveEvent(hubitat.zwave.commands.sensormultilevelv11.SensorMultilevelRe
 		case [7,8,9,10,11,12,13]:
 			(finalVal,units) = convertTemperature(cmd)
 			finalVal = finalVal.toFloat() + settings["${"sensorOffset" + (endpoint-7).toString()}"]
-			finalVal = Math.round(finalVal* 10.0)/10.0
+			finalVal = (Math.round(finalVal* 10.0)/10.0).toFloat()
 			target?.sendEvent(name: "temperature", value: finalVal, unit: units, descriptionText:"${target} temperature is ${finalVal}${units}" )
 			break
 	}
