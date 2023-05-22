@@ -1,10 +1,10 @@
 {
   "packageName": "Fibaro Smart Implant FGBS-222",
   "author": "christi999",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "minimumHEVersion": "2.1.8",
-  "dateReleased": "2021-03-07",
-  "releaseNotes": "Added support for DHT-22 temperature and humidity external sensor",
+  "dateReleased": "2023-05-22",
+  "releaseNotes": "Modified temperature handling to avoid the use of scientific notation in reporting",
   "drivers": [
     {
       "id": "81a7b38b-28fe-48b7-a6ac-65ff3c30486c",
