@@ -211,6 +211,7 @@ def parseFactor() {
 			else if (func.equals("ceil"))  {x = parseFactor(); x = Math.ceil(x);}
 			else if (func.equals("round")) {x = parseFactor(); x = Math.round(x);}
 			else if (func.equals("sqrt"))  {x = parseFactor(); x = Math.sqrt(x);}
+			else if (func.equals("not"))  {x = parseFactor(); x = ((!x) ? 1:0);}            
 			else if (func.equals("max"))   {(x,y) = parseFactor(); x = Math.max(x,y);}
 			else if (func.equals("min"))   {(x,y) = parseFactor(); x = Math.min(x,y);}
 			else if (func.equals("gt"))    {(x,y) = parseFactor(); x = ((x>y) ? 1:0);}
@@ -219,7 +220,9 @@ def parseFactor() {
 			else if (func.equals("lteq"))  {(x,y) = parseFactor(); x = ((x<=y) ? 1:0);}
 			else if (func.equals("eq"))    {(x,y) = parseFactor(); x = ((x==y) ? 1:0);}
 			else if (func.equals("neq"))   {(x,y) = parseFactor(); x = ((x!=y) ? 1:0);}
-			else{
+			else if (func.equals("or"))    {(x,y) = parseFactor(); x = ((x||y) ? 1:0);}
+			else if (func.equals("and"))    {(x,y) = parseFactor(); x = ((x&&y) ? 1:0);}
+            else{
 				log.error("Unknown function: " + func);
 			}
 		}
