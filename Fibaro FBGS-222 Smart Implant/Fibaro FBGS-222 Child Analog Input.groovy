@@ -7,15 +7,19 @@ metadata {
 		capability "Switch"
 		capability "Switch Level"
 		capability "Contact Sensor"
+        capability "PressureMeasurement"
+        capability "Water Sensor"
 		
 		attribute "rawVoltage", "decimal"
 
 		preferences {
 			input(name: "voltageEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Voltage equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'voltage' from 'rawVoltage'.<br><br>Valid functions/operators: sqrt(x), abs(x), log(x), exp(x), sin(x), cos(x), tan(x), asin(x), acos(x), atan(x), floor(x), ceil(x), round(x), sqrt(x), max(x,y), min(x,y), gt(x,y), lt(x,y), gteq(x,y), lteq(x,y), eq(x,y), neq(x,y), *, /, +, -, ^,(,) <br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: log(rawVoltage*5.1+3.3^1.2)<br><br></font>", defaultValue: "rawVoltage");			
 			input(name: "levelEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Level equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'level' from 'rawVoltage'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: max(min(round(rawVoltage*11+5.1),100),0)<br><br></font>", defaultValue: "");
+			input(name: "waterSensorEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Water sensor equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'water' from 'rawVoltage'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: max(min(round(rawVoltage*11+5.1),100),0)<br><br></font>", defaultValue: "");
 			input(name: "temperatureEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Temperature equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'temperature' from 'rawVoltage'<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: round((rawVoltage*(-68.8)/3.19+198.81-32)*5/9*100)/100<br><br></font>", defaultValue: "");			
-			input(name: "contactSensorEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Contact Sensor equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'contact' from 'rawVoltage'. Value greather than 0 is open<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: gt(rawVoltage,5.0)<br><br></font>", defaultValue: "");			
+			input(name: "contactSensorEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Contact sensor equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'contact' from 'rawVoltage'. Value greather than 0 is open<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: gt(rawVoltage,5.0)<br><br></font>", defaultValue: "");			
 			input(name: "switchEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Switch equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'switch' from 'rawVoltage'. Value greather than 0 is on<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: lt(rawVoltage,2.5)<br><br></font>", defaultValue: "");			
+			input(name: "pressureEquation", type: "string", title: "<font style='font-size:16px; color:#1a77c9'>Pressure equation</font>", description: "<font style='font-size:16px; font-style: italic'>Equation to calculate 'pressure' from 'rawVoltage'. Value greather than 0 is on<br><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Example: lt(rawVoltage,2.5)<br><br></font>", defaultValue: "");			
 		}
 	}
 }
@@ -33,6 +37,12 @@ void updated() {
 		sendEvent(name: "voltage", value: value, unit: units, descriptionText:"voltage is ${value}${units}" )
 		voltage = value
 	}
+	if(pressureEquation) {
+		value = eval(pressureEquation)
+		units="Pa"
+		sendEvent(name: "pressure", value: value, unit: units, descriptionText:"pressure is ${value}${units}" )
+		voltage = value
+	}
 	if(levelEquation) {
 		value = eval(levelEquation)
 		units=""
@@ -47,6 +57,11 @@ void updated() {
 		value = eval(contactSensorEquation) > 0 ? "open":"closed"
 		units=""
 		sendEvent(name: "contact", value: value, unit: units, descriptionText:"contact is ${value}${units}" )
+	}
+	if(waterSensorEquation) {
+		value = eval(waterSensorEquation) > 0 ? "dry":"wet"
+		units=""
+		sendEvent(name: "water", value: value, unit: units, descriptionText:"water is ${value}${units}" )
 	}
 	if(switchEquation) {
 		value = eval(switchEquation) > 0 ? "on":"off"
@@ -64,6 +79,11 @@ void parse(List<Map> description) {
 				units="v"
 				sendEvent(name: "voltage", value: value, unit: units, descriptionText:"voltage is ${value}${units}") 
 			}
+			if(pressureEquation) {
+				value = eval(pressureEquation)
+				units="Pa"
+				sendEvent(name: "pressure", value: value, unit: units, descriptionText:"pressure is ${value}${units}") 
+			}
 			if(levelEquation) {
 				value = eval(levelEquation)
 				units=""
@@ -78,6 +98,11 @@ void parse(List<Map> description) {
 				value = eval(contactSensorEquation) > 0 ? "open":"closed"
 				units=""
 				sendEvent(name: "contact", value: value, unit: units, descriptionText:"contact is ${value}${units}" )
+			}
+			if(waterSensorEquation) {
+				value = eval(waterSensorEquation) > 0 ? "dry":"wet"
+				units=""
+				sendEvent(name: "water", value: value, unit: units, descriptionText:"water is ${value}${units}" )
 			}
 			if(switchEquation) {
 				value = eval(switchEquation) > 0 ? "on":"off"
