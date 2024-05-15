@@ -10,7 +10,7 @@
 * Licensing:
 *
 * Version Control:
-* 1.7.7 - Modified reinstall command confirmation step, added legacy/normal option for alarm NO NC logic, defaults to legacy
+* 1.7.7 - Modified reinstall command confirmation step, added legacy/normal option for alarm NO NC logic, defaults to legacy. Added logical operators and water/pressure capabilities to analog child.
 * 1.7.6 - Modified temperature formatting to avoid use scientific notation in reporting
 * 1.7.5 - Added support for DHT-22 temperature and humidity external sensor
 * 1.7.4 - Adding flexibility/capabilities to child analog input
