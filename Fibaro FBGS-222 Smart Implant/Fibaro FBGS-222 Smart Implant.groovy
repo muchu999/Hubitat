@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.7.7 - Modified reinstall command confirmation step, added legacy/normal option for alarm NO NC logic, defaults to legacy. Added logical operators and water/pressure capabilities to analog child.
 * 1.7.6 - Modified temperature formatting to avoid use scientific notation in reporting
 * 1.7.5 - Added support for DHT-22 temperature and humidity external sensor
 * 1.7.4 - Adding flexibility/capabilities to child analog input
@@ -39,10 +40,10 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.7.6"  }
+public static String version()      {  return "1.7.7"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
-		command( "Reinstall", [["name":"Confirmation*",	"description":"Choose Yes to confirm reinstalling the driver, child devices and state variables will be erased, rules, tiles, etc. linked to the child devices will be broken", "type":"ENUM", "constraints":["no","yes"]]])		
+		command( "Reinstall")
 		command( "CheckConfig" )
 		capability "Configuration"
 		
@@ -69,13 +70,15 @@ metadata {
 		input "localProtection2", "enum", title: "<b>Input/Output 2 - Local Device Protection?</b>", description: "0:Unprotected, 2:State of output cannot be changed by the B-button or corresponding Input", options: ["0","2"], defaultValue: "0", required: true
 		input "rfProtection2", "enum", title: "<b>Input/Output 2 - RF Device Protection?</b>", description: "0:Unprotected, 1:No RF control – command class basic and switch binary are rejected, every other command classwill be handled", options: ["0","1"], defaultValue: "0", required: true
 		input "tempUnits", "enum", title: "<b>Temperature Units?</b>", description: "default: The units used by your hub", options: ["default","F","C"], defaultValue: "default", required: true
+		input name: "useLegacy",   type: "bool", title: "<b>Use legacy alarm NO/NC inverted logic</b>",   description: "Enable the driver's legacy alarm normally open/closed implementation, which was inverted. Disable this option to use the 'normal' implant behavior", defaultValue: true        
+		input name: "enableReinstall",   type: "bool", title: "<b>Enable 'reinstall'</b>",   description: "Enable the 'reinstall' command. Use with caution, child devices will be erase and re-created (therefore breaking existing links). This option will be automatically disabled after 5 minutes", defaultValue: false        
 		input name: "debugOutput",   type: "bool", title: "<b>Enable debug logging?</b>",   description: "<br>", defaultValue: true               
 	}
 }
 
-def Reinstall(confirm) {
+def Reinstall() {
     logDebug "Reinstall()"
-	if(confirm == "yes") {
+	if(enableReinstall) {
 		logDebug "Proceeding with reinstall"
 		removeChildDevices(getChildDevices())
 		state.clear()
@@ -98,6 +101,11 @@ def installed() {
 
 def updated() {
 	logDebug "updated"
+
+    if(enableReinstall) {
+        runIn(300, disableReinstall)
+    }
+   
 	initialize()
 }
 
@@ -111,6 +119,14 @@ private initialize() {
 	else {
 		updateExternalChildSensors()
 	}
+}
+
+//---------------------------
+//
+//---------------------------
+def disableReinstall() {
+    // Turn off option avoid accidents
+    device.updateSetting("enableReinstall",[value:"false",type:"bool"]);    
 }
 
 
@@ -537,11 +553,11 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv3.NotificationReport 
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: "open") 
+				useLegacy ? target?.sendEvent(name: "contact", value: "open") : target?.sendEvent(name: "contact", value: "closed")
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: "closed")     
+				useLegacy ?  target?.sendEvent(name: "contact", value: "closed") : target?.sendEvent(name: "contact", value: "open")
 				break
 			default:
 				break
@@ -568,11 +584,11 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport 
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: "open") 
+				useLegacy ? target?.sendEvent(name: "contact", value: "open") : target?.sendEvent(name: "contact", value: "closed")
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: "closed")     
+				useLegacy ? target?.sendEvent(name: "contact", value: "closed") : target?.sendEvent(name: "contact", value: "open")
 				break
 			default:
 				break
@@ -599,11 +615,11 @@ private def zwaveEvent(hubitat.zwave.commands.notificationv8.NotificationReport 
 		switch (cmd.event) {
 			case 0:
 				//  spec says this is 'clear previous alert'
-				target?.sendEvent(name: "contact", value: "open") 
+                useLegacy ? target?.sendEvent(name: "contact", value: "open") : target?.sendEvent(name: "contact", value: "closed")
 				break
 			case 2:
 				//  spec says this is 'tamper'
-				target?.sendEvent(name: "contact", value: "closed")     
+				useLegacy ? target?.sendEvent(name: "contact", value: "closed") : target?.sendEvent(name: "contact", value: "open")   
 				break
 			default:
 				break
@@ -851,6 +867,7 @@ def configure() {
 	logDebug "cmds: ${cmds}"
 	formatCommandsWithPause(cmds, delay)
 	pauseExecution(2000)
+
 	logDebug "Configure() Done"
 }
 
