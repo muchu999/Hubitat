@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.7.7 - Modified reinstall command confirmation step, added legacy/normal option for alarm NO NC logic, defaults to legacy
 * 1.7.6 - Modified temperature formatting to avoid use scientific notation in reporting
 * 1.7.5 - Added support for DHT-22 temperature and humidity external sensor
 * 1.7.4 - Adding flexibility/capabilities to child analog input
@@ -39,7 +40,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.7.6"  }
+public static String version()      {  return "1.7.7"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
 		command( "Reinstall")
