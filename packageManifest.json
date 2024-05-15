@@ -1,10 +1,10 @@
 {
   "packageName": "Fibaro Smart Implant FGBS-222",
   "author": "christi999",
-  "version": "1.7.7",
+  "version": "1.7.8",
   "minimumHEVersion": "2.1.8",
   "dateReleased": "2024-05-15",
-  "releaseNotes": "Modified reinstall confirmation step (reset after 5 min.), added a switch for normal or inverted alarm NO/NC behavior, defaults to legacy (inverted), added logical operators and water/pressure capabilities to analog child",
+  "releaseNotes": "Adding parameter numbers to descriptions",
   "drivers": [
     {
       "id": "81a7b38b-28fe-48b7-a6ac-65ff3c30486c",
