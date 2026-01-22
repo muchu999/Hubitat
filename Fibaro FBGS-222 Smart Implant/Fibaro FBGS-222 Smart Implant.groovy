@@ -10,6 +10,7 @@
 * Licensing:
 *
 * Version Control:
+* 1.7.9 - Fix bug presenting with ZWaveJS
 * 1.7.8 - Adding parameter numbers to descriptions.
 * 1.7.7 - Modified reinstall command confirmation step, added legacy/normal option for alarm NO NC logic, defaults to legacy. Added logical operators and water/pressure capabilities to analog child.
 * 1.7.6 - Modified temperature formatting to avoid use scientific notation in reporting
@@ -41,7 +42,7 @@
 * This code is based on the original design from @boblehest on Github
 */
 
-public static String version()      {  return "1.7.8"  }
+public static String version()      {  return "1.7.9"  }
 metadata {
 	definition (name: "Fibaro FGBS-222 Smart Implant", namespace: "christi999", author: "", importUrl: "https://raw.githubusercontent.com/muchu999/Hubitat/master/Fibaro%20FBGS-222%20Smart%20Implant/Fibaro%20FBGS-222%20Smart%20Implant.groovy") {	
 		command( "Reinstall")
@@ -1263,7 +1264,19 @@ private toEndpoint(cmd, endpoint) {
 //
 //---------------------------
 private formatCommands(cmds, delay=null) {
-	def formattedCmds = cmds.collect { secureCommand(it.format()) }
+	//def formattedCmds = cmds.collect { secureCommand(it.format()) }
+    def formattedCmds = cmds.collect { cmd ->
+        if (getDataValue("zwaveSecurePairingComplete") == "true") {
+            if (getDataValue("S2") != null) {
+            	zwaveSecureEncap(cmd)
+        	}
+        	else {
+            	zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+        	}
+        } else {
+            cmd.format()
+        }
+    }
 	
 	if (delay) {
 		sendHubCommand(new hubitat.device.HubMultiAction(delayBetween(formattedCmds,delay), hubitat.device.Protocol.ZWAVE))
@@ -1276,7 +1289,20 @@ private formatCommands(cmds, delay=null) {
 //
 //---------------------------
 private formatCommandsWithPause(cmds, delay=null) {
-	def formattedCmds = cmds.collect { secureCommand(it.format()) }
+	//def formattedCmds = cmds.collect { secureCommand(it.format()) }
+    def formattedCmds = cmds.collect { cmd ->
+        if (getDataValue("zwaveSecurePairingComplete") == "true") {
+            if (getDataValue("S2") != null) {
+            	zwaveSecureEncap(cmd)
+        	}
+        	else {
+            	zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+        	}
+        } else {
+            cmd.format()
+        }
+    }
+	
 	formattedCmds.each {
 		sendHubCommand(new hubitat.device.HubAction(it, hubitat.device.Protocol.ZWAVE))
 		if(delay) {
@@ -1334,3 +1360,4 @@ def logDebug(msg) {
 private channelNumber(String dni) {
 	dni.split("-ep")[-1].toInteger()
 }
+
